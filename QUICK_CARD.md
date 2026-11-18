@@ -26,7 +26,7 @@
 | 「给 Hao 提个建议」「要是能……就好了」 | `report.py`，`step` 写 `other` | 用户有建议 |
 | 「更新 Acost」 | `fetch.py` | 更新 |
 | 恢复码 | 只在用户要时显示 | 恢复码 |
-| 「Acost 是什么」「怎么用」 | 把 `~/acost/WELCOME.md` 分割线之间的内容原样发给用户 | |
+| 「Acost 是什么」「怎么用」「发一下介绍、视频」 | `python3 ~/acost/tools/welcome.py`，发介绍，再把视频作为附件发出 | |
 
 拿不准用户要做哪件事，就问一句，不要猜着记。
 
