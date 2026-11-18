@@ -60,6 +60,24 @@ class Refused(Exception):
     """Nothing more can be done without the user; the message is what to ask or fix."""
 
 
+class Unsure(Refused):
+    """The connection dropped while a write was on its way: it may be in the ledger or not. The journal is kept
+    exactly as sent and marked, so the next run sends the same thing again and the ledger's idempotency key
+    either returns the entry it already has or saves it now. Never a duplicate, never a false "maybe a duplicate"."""
+
+
+def lost(result):
+    """ledgerctl's error for a write whose answer did not arrive (the same words on both backends)."""
+    return "无法连接" in str(result.get("error") or "")
+
+
+def unsure(journal, what, saved=None):
+    journal.data["unsure"] = True
+    journal.save()
+    return Unsure("网络断了一下，不确定%s有没有记上。不要说已保存，也不要说没记；原样再运行一次同一条命令，"
+                  "不会重复记。连着几次都这样，就告诉用户网络不好、稍后再试。" % what, saved or {})
+
+
 def integer(receipt, field, default=None, positive=False):
     value = receipt.get(field, default)
     if isinstance(value, bool) or not isinstance(value, int) or (positive and value <= 0):
@@ -267,6 +285,8 @@ def submit(ledger, journal, args, receipt, not_duplicate):
         else:
             raise Refused("账本里已经有一样的一笔：%s。是同一笔就不用再记；用户确认是另一笔，在描述里加 \"again\": %d 再运行。"
                           % (describe(result.get("candidates") or []), (receipt.get("again") or 1) + 1))
+    if not ok and lost(result):
+        raise unsure(journal, "这一笔")
     if not ok:
         raise Refused("账本没有接受：%s。能改的改好再运行；不明白就如实告诉用户。" % (result.get("message") or result.get("error")))
     entry = result.get("entry") or {}
@@ -275,6 +295,7 @@ def submit(ledger, journal, args, receipt, not_duplicate):
     if entry.get("amount_cents") != payload["amount_cents"] or entry.get("date") != payload["date"]:
         raise Refused("账本返回的内容和提交的不一致（ID %s）。告诉用户。" % entry.get("id"))
     saved["entry"] = entry["id"]
+    journal.data.pop("unsure", None)
     journal.save()
     return {"ok": True, "status": "already_saved" if was_complete else "saved", "type": payload.get("type", "refund"),
             "date": payload["date"], "entries": [{"amount_cents": payload["amount_cents"], "id": entry["id"]}],
@@ -295,7 +316,7 @@ def transfer(ledger, receipt, not_duplicate=()):
     key = "xfer:%s:%s:%s:%s" % (receipt["date"], receipt["total_cents"], receipt["account"], receipt["to_account"])
     key += (":" + receipt["time"] if receipt.get("time") else "") + again_key(receipt)
     journal = Journal(key)
-    if not journal.data.get("saved"):
+    if not journal.data.get("saved") and not journal.data.get("unsure"):
         accounts = {item.get("name") for item in ledger.need("meta").get("accounts") or []}
         for name in (receipt["account"], receipt["to_account"]):
             if name not in accounts:
@@ -357,7 +378,7 @@ def refund(ledger, receipt, not_duplicate=()):
     key = "refund:%s:%s:%s" % (receipt["date"], receipt["total_cents"], target)
     key += "".join(":" + receipt[field] for field in ("original_date", "time") if receipt.get(field)) + again_key(receipt)
     journal = Journal(key)
-    if not journal.data.get("saved"):
+    if not journal.data.get("saved") and not journal.data.get("unsure"):   # after a lost answer: the same purchase
         purchase = find_purchase(ledger, receipt)
         start(journal, receipt, {"amount_cents": receipt["total_cents"], "date": receipt["date"],
                                  "idempotency_key": "refund:%s:%s:%s%s" % (purchase["id"], receipt["date"],
@@ -388,7 +409,7 @@ def record(ledger, receipt, not_duplicate=()):
     key = receipt_key(receipt, photo_hash)
     journal = Journal(key)
     done = journal.data.get("saved") or {}
-    if not done:  # nothing is in the ledger yet, so the newest description wins
+    if not done and not journal.data.get("unsure"):  # nothing is in the ledger yet, so the newest description wins
         parts = split(receipt)
         meta = ledger.need("meta")
         known = {item.get("name") for item in meta.get("categories") or []}
@@ -448,6 +469,8 @@ def record(ledger, receipt, not_duplicate=()):
                 raise Refused("疑似重复，还没记完：%s。逐个核对；是同一笔就不要再记，"
                               "用户确认是另一笔后，加 --not-duplicate ID 原样再运行。"
                               % describe(result.get("candidates") or []), saved)
+        if not ok and lost(result):
+            raise unsure(journal, "「%s」这一笔" % category, saved)
         if not ok:
             raise Refused("账本没有接受「%s」这一笔：%s。原样再运行一次；还不行就告诉用户。"
                           % (category, result.get("error")), saved)
@@ -457,6 +480,8 @@ def record(ledger, receipt, not_duplicate=()):
         if entry.get("amount_cents") != payload["amount_cents"] or entry.get("date") != payload["date"]:
             raise Refused("账本返回的内容和提交的不一致（ID %s）。告诉用户。" % entry.get("id"), saved)
         saved[category] = entry["id"]
+        if len(saved) == len(payloads):
+            journal.data.pop("unsure", None)
         journal.save()
     entries = [{"category": payload["category"], "amount_cents": payload["amount_cents"],
                 "id": saved[payload["category"]]} for payload in payloads]
@@ -491,8 +516,11 @@ def main(argv=None):
         result = record(Ledger(args.ledger), receipt, args.not_duplicate)
     except Refused as refusal:
         saved = refusal.args[1] if len(refusal.args) > 1 else {}
-        result = {"ok": False, "status": "partial" if saved else "refused", "saved_ids": saved,
-                  "next": ("记了一半，已记的不会重复。" if saved else "没记。") + refusal.args[0]}
+        if isinstance(refusal, Unsure):
+            result = {"ok": False, "status": "unsure", "saved_ids": saved, "next": refusal.args[0]}
+        else:
+            result = {"ok": False, "status": "partial" if saved else "refused", "saved_ids": saved,
+                      "next": ("记了一半，已记的不会重复。" if saved else "没记。") + refusal.args[0]}
     except LedgerError as error:
         result = {"ok": False, "status": "refused", "next": "没记。连不上账本或账本出错：%s。如实告诉用户，稍后原样再运行。" % error}
     print(json.dumps(result, ensure_ascii=False))

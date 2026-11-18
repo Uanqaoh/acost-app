@@ -96,7 +96,7 @@ python3 ledgerctl.py list --month 2026-10 --q Nations --limit 100 --offset 0
 
 换到加密版以后，记账、查询、退款、改账的命令和规则都不变，报错也一样。另外：
 
-- 包装脚本必须用 `~/acost-venv/bin/python` 运行（加密要用 `cryptography`）。连不上、解密失败、提示「可能被回滚」时都视为失败：不要说已保存，如实告诉用户。
+- 包装脚本必须用 `~/acost-venv/bin/python` 运行（加密要用 `cryptography`）。解密失败、提示「可能被回滚」时都视为失败：不要说已保存，如实告诉用户。写入时连不上（record.py 的 `status` 是 `unsure`，或提示「可能已经进了账本」）是不知道成没成：新增和退款原样再运行一次同一条命令，不会重复；改账、删账先查这笔账再决定。
 - 小票照片不再保存；照片照样可以给 `record.py` 用来认小票，账本里不留照片。
 - master key 在 `~/.config/acost/master.key`。**不要读、不要打印、不要复制它。** 恢复码只在用户要求、或开通时用 `vault recovery-code` 给用户看一次，不写进任何文件或记忆。
 - 每次开始可以先跑 `vault check`：它会说一共几笔、几个月、连了几次服务器。
