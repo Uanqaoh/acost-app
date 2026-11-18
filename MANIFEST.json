@@ -26,6 +26,6 @@
   "acost_vault/admin.py": "350f00c5c803f7dd6e3f6dc730d3853d2b82111c9bc88d63e21affbc59061e4f",
   "cloud_admin.py": "00f964f18df751ca45703ceccf9db65907ff566cb95f41bdd901a4fbb74e3aa1",
   "tools/fetch.py": "d4f95a4804a3fcb185120651909088d9b2a5000ce02852c1fc2a1a0d36075f87",
-  "tools/install_muse.py": "0431e3c8088582ac65323ca165271007dcf2dcbcb740930ea9d1eb91dae66af0"
+  "tools/install_muse.py": "fc73d2300c6abb23087f4bbe9dd74b1140fc715784460ef563040eba4d8eb7bd"
  }
 }

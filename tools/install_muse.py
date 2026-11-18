@@ -109,6 +109,8 @@ def main(argv=None):
                 if "master key" in error:
                     raise Stop("这本账已经开通过，但这台机器上没有 master key（多半是换了机器）：请用户把恢复码给你，"
                                "运行 ~/acost/bin/ledger-ai vault restore，从标准输入读恢复码。")
+                if "无法连接" in error:
+                    raise Stop("网络断了一下：原样再运行一次这条安装命令就行，做过的步骤不会重做。" + error)
                 raise Stop("连不上账本或自检没通过：" + error)
             ok, result = run(*([ai, "vault", "init"] + (["--book", args.book] if args.book else [])))
             if not ok:
@@ -126,6 +128,8 @@ def main(argv=None):
 
         ok, check = run(ai, "vault", "check")
         if not ok:
+            if "无法连接" in str(check.get("error")):
+                raise Stop("网络断了一下：原样再运行一次这条安装命令就行，做过的步骤不会重做。" + str(check.get("error")))
             raise Stop("自检没通过：" + str(check.get("error")))
         ok, meta = run(ro, "meta")
         if not ok or meta.get("client", {}).get("role") != "readonly":
