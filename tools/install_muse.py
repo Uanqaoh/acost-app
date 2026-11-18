@@ -37,8 +37,8 @@ class Stop(Exception):
     pass
 
 
-def run(*command, stdin=None):
-    done = subprocess.run([str(part) for part in command], capture_output=True, text=True, input=stdin, timeout=600)
+def run(*command, stdin=None, env=None):
+    done = subprocess.run([str(part) for part in command], capture_output=True, text=True, input=stdin, timeout=600, env=env)
     lines = (done.stdout if done.returncode == 0 else done.stderr).strip().splitlines()
     try:
         result = json.loads(lines[-1]) if lines else {}
@@ -83,8 +83,9 @@ def main(argv=None):
         if not (CONFIG / "ai.json").exists():
             if not args.invite:
                 raise Stop("还没加入：需要 Hao 发的邀请码，加 --invite 再运行。")
+            # Same proxy switch as the wrappers: a Muse VM only reaches the internet through its egress proxy.
             ok, result = run(PYTHON, ACOST / "ledgerctl.py", "--config", CONFIG / "ai.json", "vault", "join", "--invite", args.invite,
-                             *(["--url", args.url] if args.url else []))
+                             *(["--url", args.url] if args.url else []), env={**os.environ, "LEDGER_USE_ENV_PROXY": "1"})
             if not ok:
                 raise Stop("邀请码没用上：" + str(result.get("error")))
             done.append("用邀请码加入，钥匙存在 ~/.config/acost/")
