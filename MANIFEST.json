@@ -10,7 +10,7 @@
   "tools/record.py": "be9ca298c3405265515d407011f06945647f796cf895a1d0f2b6db4c9d23e560",
   "tools/dashboard_data.py": "435f1192b080ff598fade9f41bdaeae203f65853ca8f2c43b3e1f50c4dc50a36",
   "tools/daily.py": "812668a773c967f816cf4caa65a3c511f51d70d4fcb625ece85b0f9cc7859145",
-  "tools/manifest.py": "447705c5574d4fda74dd4c15e8b446ffebe1f665af3d7dd570af8bd4b0353e05",
+  "tools/manifest.py": "9ff86f5a4e1fda2a6fc10ddf3d44521c301d1796e152bb7b3d9ff72478468197",
   "tools/categories.py": "b2c053d8385d07d05e71ccf7de23eb503417b0bdfe652e28fc34c08bf63c5d89",
   "categories.json": "5196714da72c1545192577a0d372dfecdebd93eaf6e57fae9fc530ed17e6d005",
   "tools/fix.py": "227a9b6d5f194ebe36f294c910c264aae0fd6ca6c72388e680c65f8a4da58654",
@@ -29,7 +29,7 @@
   "tools/install_muse.py": "36f5b62053bcdfe26b3d3d2966d3d7a1f4346513435d94a1343daf8840e6d392",
   "acost_vault/report.py": "b1051fa89b5e563ae85d606b7ff254f3bf6059caf6d68696791e991687532b66",
   "tools/report.py": "bc008cb268a6cd39fe9f291e411372993e56c9d470fbbb7f5ae073bd3de6ff43",
-  "WELCOME.md": "c942cf84752ba450950c94a65afbf61d93b6a984ccfb91e30eaf901e45d60d31",
-  "assets/pin_tab.gif": "872040c87478a440e5d211c72bd61fdb5e7b98b17646269b196e6d51809eacfe"
+  "WELCOME.md": "e298c5d39bf6c6b79c62a0ed01e94739cb52abea14fcb2c73e2307b9ae73802b",
+  "assets/pin_tab.mp4": "80717abfd2d5c4e396d9d5fd0deb69938c3d14377d529d9319097a304aa2e34b"
  }
 }
