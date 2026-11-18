@@ -19,7 +19,9 @@ FILES = ("ledgerctl.py", "client_config.py", "QUICK_CARD.md", "AGENT_USAGE.md", 
          # vault import / export read and write the old backup format with it.
          "cloud_admin.py",
          # Friends' machines: download and update (fetch.py), first setup (install_muse.py).
-         "tools/fetch.py", "tools/install_muse.py")
+         "tools/fetch.py", "tools/install_muse.py",
+         # The problem inbox: Muse tells Hao what broke (no ledger content).
+         "acost_vault/report.py", "tools/report.py")
 
 
 def current(root=ROOT):

@@ -393,10 +393,35 @@ def entry_path(entry_id):
     return "entries/" + urllib.parse.quote(str(entry_id), safe="")
 
 
+def send_report(args):
+    """`vault report --file problem.json`: send Hao a problem report (acost_vault/report.py; no cryptography needed).
+    With this machine's ledger key when there is one; with --invite when the install never got that far."""
+    from acost_vault import report
+    from acost_vault.sync import VaultError
+    if not args.file:
+        raise LedgerError("report 需要 --file 报告（JSON：step、summary、error、checks）。")
+    try:
+        problem = json.loads(Path(args.file).expanduser().read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise LedgerError("读不了报告文件：%s" % error) from None
+    try:
+        if args.invite:
+            return report.send(problem, invite=args.invite, url=args.url or report.SERVICE_URL,
+                               use_env_proxy=os.environ.get("LEDGER_USE_ENV_PROXY") == "1")
+        client = connection()
+        if client.backend != "vault":
+            raise LedgerError("问题报告只发到加密版账本的服务（backend: vault）。")
+        return report.send(problem, token=client.token, url=client.url, use_env_proxy=client.use_env_proxy)
+    except VaultError as error:
+        raise LedgerError(str(error), status=error.status) from None
+
+
 def execute(args):
     command = args.command
     if command == "configure":
         return configure_client(args)
+    if command == "vault" and args.action == "report":
+        return send_report(args)
     if command == "vault":
         try:
             from acost_vault import admin
@@ -574,14 +599,14 @@ def build_parser():
         sub.add_argument("id", help="账单 ID")
         sub.add_argument("--expected-version", type=int, required=True, help="先 get 原单读取 version")
     vault = commands.add_parser("vault", help="加密版账本：开通、恢复码、自检、搬账、导出")
-    vault.add_argument("action", choices=("join", "init", "recovery-code", "restore", "check", "import", "export"),
+    vault.add_argument("action", choices=("join", "init", "recovery-code", "restore", "check", "import", "export", "report"),
                        help="join 用邀请码加入；init 开通；recovery-code 显示恢复码（只给用户看）；restore 从标准输入读恢复码；"
-                            "check 自检；import 搬入旧备份；export 导出成旧备份格式")
-    vault.add_argument("--invite", help="join：Hao 发的一次性邀请码")
-    vault.add_argument("--url", help="join：加密账本地址；默认 Acost 的服务")
+                            "check 自检；import 搬入旧备份；export 导出成旧备份格式；report 给 Hao 发问题报告（用 tools/report.py）")
+    vault.add_argument("--invite", help="join：Hao 发的一次性邀请码；report：还没有钥匙时用它代替")
+    vault.add_argument("--url", help="join、report：加密账本地址；默认 Acost 的服务")
     vault.add_argument("--empty", action="store_true", help="init：不建起步账户和分类（马上要 import 旧账时用）")
     vault.add_argument("--book", help="init：账本名")
-    vault.add_argument("--file", help="import：cloud_admin.py backup 的 ZIP 或快照 JSON")
+    vault.add_argument("--file", help="import：cloud_admin.py backup 的 ZIP 或快照 JSON；report：报告 JSON")
     vault.add_argument("--compare-with", type=Path, help="import：旧账本配置，逐月和旧账本的汇总比")
     vault.add_argument("--output", help="export：输出 ZIP")
     upload = commands.add_parser("upload", help="上传最多 8 MB 的小票文件")
