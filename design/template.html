@@ -1,0 +1,898 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acost 看板</title>
+<!--
+  Acost 看板 · 单文件模板（给 Muse Space 用）
+  ------------------------------------------------------------
+  - 只读看板。页面上没有任何记账、修改、删除入口，也不要加。
+  - 页面里的数据全部是示例数据。使用时只替换下面 <script id="acost-data"> 里的 JSON，
+    其余 HTML / CSS / JS 不需要改。
+  - 数据可以是两种形状：
+      多个月：{"YYYY-MM": {…一个月…}, …}，也就是 tools/dashboard_data.py 写出的文件原样放进来。
+        页面自己切换月份（‹ › 按钮，到头就变灰），搜索覆盖放进来的所有月份。推荐用这种。
+      一个月：{"month": "YYYY-MM", "entries": […], …}。这时页面不处理 ‹ › 按钮，留给外层页面去换数据。
+  - 搜索：在商家、备注、分类、账户、日期、金额和商品名里找，空格隔开的几个词要同时出现。
+      结果显示在“当天流水”那张卡片里；点任意一天或“清除搜索”回到当天流水。
+  - 饼图：点一块，圆心显示这个分类的名字、金额、笔数和占比，下面的列表同时展开它；再点一次恢复。
+  - 数据来源（用只读钥匙）：
+      summary  ← ledger-ro summary --month YYYY-MM      （顶部四个数字以它为准）
+      entries  ← ledger-ro list --month YYYY-MM          （按 next_offset 翻完所有页）
+      accounts ← ledger-ro meta 里的 accounts
+  - 分类规则：
+      "父类-子类"（如 "餐饮-Grocery"）按第一个 "-" 拆成父类和子类；没有 "-" 的就是父类本身。
+      fixedCategories 里的分类算“固定支出”：不画进每日柱状图，在日期下和月历里用 ● 标出。
+        可以填父类（如 "Housing"，整个父类都算固定），也可以填完整的子类名
+        （如 "Car-Loan"，只有这个子类算固定，同父类的 "Car-Parking" 仍算日常）。
+        填了完整子类名的，在分类卡片的“固定支出”组里单独成一行。
+      categoryLabels 可选：把分类键显示成中文（如 "Car-Loan": "车贷"、"Housing": "住房"）。
+      subcategoryLabels 只用来把英文子类名显示成中文，找不到就原样显示。
+      recurring 可选：本月固定扣费清单，每项 {name, category, day, amount_cents, match?, start?, end?, estimate?}，
+        直接用 tools/recurring.py export --month YYYY-MM 的输出。start / end 是开始和结束日期：
+        还没开始或已经取消的，本月没扣就不显示；本月已经扣过的照常显示。
+        一个月扣两次的（两周一次）会有两项，各自对应一笔账单。estimate 为 true 的，
+        自动记的那一笔金额前带 ≈，等账单核对后（备注变成“固定扣费已核对”）去掉。
+        category 可以是父类或完整子类；有几项落在同一分类时（如几个订阅），用 match
+        （商家名或备注里包含的文字，不分大小写）区分。本月账单里找到对应的一笔就算“已扣”，
+        标在实际扣款那天；还没找到就是“待扣”，按 day 标在月历上（虚线），金额为预计金额。
+      recurringView 可选："bar"（默认，一条按金额分段的色条：实心为已扣，虚线框为待扣；点一段看这一项）或 "list"（每项一行）。
+      categoryLabels 也用于父类（如 "Food": "餐饮"、"Car": "车辆"）。
+  - 小票明细：entries 里每笔可带 items（账本接口原样返回，[{name, amount_cents}]，没有为 null）。
+      有明细的账单显示“N 件商品 明细 ›”，点开列出每项；明细合计和本笔金额不同时会在底部注明。
+      条目可带 id（账本的 entry.id），用来记住哪些明细是展开的。
+  - 预算：budget 可选，{"total_cents": 每月总上限, "categories": {"分类": 上限, …}}，来自 tools/budget.py。
+      分类可以是父类（包含它下面所有子类）或完整分类名。没有 budget 就不显示这张卡片。
+  - 全年：放进来的数据里，同一年有两个月以上时，页面底部显示这一年每个月的支出和按父类的合计；点某个月跳过去。
+  - 文字一律用 textContent / 转义后显示：商家名和备注是外部数据，不能当 HTML。
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+  :root {
+    --bg: #F3F4F1;          /* 页面底色 */
+    --card: #FFFFFF;        /* 卡片 */
+    --ink: #17201C;         /* 主文字 */
+    --muted: #5E6863;       /* 次要文字 */
+    --line: #E2E5E0;        /* 卡片边框、分隔线 */
+    --line-soft: #EEF0EC;   /* 列表行分隔线 */
+    --control: #D9DDD7;     /* 按钮、输入框边框 */
+    --sunken: #F7F8F6;      /* 展开后的账单列表底色 */
+    --expense: #B5531C;     /* 支出（橙） */
+    --income: #2F5FA0;      /* 收入（蓝） */
+    --refund: #1F6B4F;      /* 退款、品牌色（绿） */
+    --fixed-dot: #3E4843;   /* 固定支出标记 ● */
+    --heat-0: #F3F4F1; --heat-1: #F8EBE2; --heat-2: #F3D9C7; --heat-3: #EDC3A6; --heat-4: #E5A985;
+    --radius-card: 16px;
+    --radius-ctl: 10px;
+    --font: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", system-ui, sans-serif;
+    --font-num: "Space Grotesk", "Noto Sans SC", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 14px; line-height: 1.5; }
+  button { font: inherit; color: inherit; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--refund); outline-offset: 2px; }
+  .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .muted { color: var(--muted); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .page { max-width: 1280px; margin: 0 auto; padding: 24px 32px 40px; display: flex; flex-direction: column; gap: 20px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 20px 24px; }
+  .card h2 { margin: 0; font-size: 16px; font-weight: 700; }
+  .card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .hint { font-size: 12px; color: var(--muted); }
+
+  /* 顶栏 */
+  .top { display: flex; align-items: center; gap: 16px 24px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; flex: 1 1 0; }
+  .brand b { font-size: 18px; }
+  .pill { font-size: 12px; color: var(--muted); padding: 2px 8px; border: 1px solid var(--control); border-radius: 999px; }
+  .month { display: flex; align-items: center; gap: 4px; }
+  .month button { width: 36px; height: 36px; border: 1px solid var(--control); background: var(--card); border-radius: var(--radius-ctl); cursor: pointer; font-size: 16px; }
+  .month button[disabled] { opacity: .35; cursor: default; }
+  .month .label { min-width: 132px; text-align: center; font-size: 17px; font-weight: 600; }
+  .top-right { display: flex; align-items: center; gap: 12px; flex: 1 1 0; justify-content: flex-end; }
+  .fresh { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .fresh i { width: 7px; height: 7px; border-radius: 50%; background: var(--refund); display: inline-block; }
+  .search-toggle { display: none; }
+  .search { width: 200px; height: 36px; padding: 0 12px; border: 1px solid var(--control); border-radius: var(--radius-ctl); background: var(--card); font: inherit; }
+
+  /* 概览 */
+  .summary { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; padding: 22px 28px; }
+  .summary > div { display: flex; flex-direction: column; gap: 4px; padding: 0 24px; border-left: 1px solid var(--line-soft); }
+  .summary > div:first-child { padding-left: 0; border-left: 0; }
+  .summary .k { font-size: 13px; color: var(--muted); }
+  .summary .big { font-size: 40px; font-weight: 700; line-height: 1.1; }
+  .summary .mid { font-size: 26px; font-weight: 600; line-height: 1.25; margin-top: 8px; }
+
+  /* 两栏 */
+  .cols { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+  /* 每日柱状图 */
+  .chart { display: flex; flex-direction: column; gap: 14px; }
+  .bars { height: 150px; display: flex; align-items: flex-end; gap: 5px; border-bottom: 1px solid var(--control); }
+  .bars .day { flex: 1 1 0; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; cursor: pointer; background: none; border: 0; padding: 0; }
+  .bars .v { font-size: 10.5px; line-height: 1; color: var(--muted); font-weight: 500; white-space: nowrap; }
+  .bars .b { width: 100%; max-width: 20px; border-radius: 4px 4px 1px 1px; background: var(--expense); }
+  .bars .day.future .b { background: var(--line); }
+  .bars .day.sel .b { background: var(--ink); }
+  .bars .day.sel .v { color: var(--ink); font-weight: 700; }
+  .ticks { display: flex; gap: 5px; margin-top: -8px; }
+  .ticks div { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; font-size: 11px; color: var(--muted); }
+  .ticks .sel { color: var(--ink); font-weight: 700; }
+
+  /* 月历 */
+  .calendar { display: flex; flex-direction: column; gap: 12px; }
+  .legend { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .legend .sw { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .wk, .grid7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+  .wk div { text-align: center; font-size: 12px; color: var(--muted); }
+  .cell { height: 66px; border-radius: var(--radius-ctl); padding: 8px 10px; display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 3px; cursor: pointer; border: 2px solid transparent; background: var(--heat-0); }
+  .cell.blank { visibility: hidden; }
+  .cell.future { opacity: 0.55; }
+  .cell.sel { border-color: var(--ink); }
+  .cell .d { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 5px; width: 100%; min-width: 0; }
+  .cell .dn { font-family: var(--font-num); font-size: 17px; font-weight: 700; line-height: 1.2; color: var(--ink); }
+  .cell.future .dn { color: var(--muted); }
+  .cell .d .rtag { font-size: 10px; font-weight: 500; min-width: 0; }
+  .cell .rtag::before { display: none; }
+  .cell .rtag .rn { overflow: hidden; text-overflow: ellipsis; }
+  .cell .fx { font-size: 8px; line-height: 1; color: var(--fixed-dot); }
+  .cell .a { font-size: 11.5px; color: #3E4843; }
+  .cell .inc { font-size: 10.5px; color: var(--income); font-weight: 600; background: rgba(255, 255, 255, 0.75); border-radius: 4px; padding: 0 4px; }
+  /* Grow with content: day, daily spend, income, fixed-charge tag. A week row grows together. */
+  .cell { height: auto; min-height: 76px; }
+  .rtag { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; font-size: 11px; line-height: 1.4; color: var(--ink); white-space: nowrap; overflow: hidden; }
+  .rtag::before, .mark { content: ""; flex: 0 0 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--fixed-dot); }
+  .rtag.due { color: var(--muted); }
+  .rtag.due::before, .mark.due { background: transparent; box-shadow: inset 0 0 0 1.5px var(--fixed-dot); }
+  .recur { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; background: var(--sunken); border-radius: var(--radius-ctl); }
+  .recur .head { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 16px; flex-wrap: wrap; font-size: 13px; }
+  .recur .head b { font-size: 14px; }
+  .recur .bar { height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
+  .recur .bar span { display: block; height: 100%; background: var(--fixed-dot); border-radius: 999px; }
+  .recur .stack { display: flex; gap: 3px; height: 16px; }
+  .recur .seg { border: 0; padding: 0; height: 100%; border-radius: 4px; cursor: pointer; min-width: 6px; transition: transform .12s, opacity .12s; }
+  .recur .seg.due { box-shadow: none !important; }
+  .recur .seg.on { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .recur .seg:hover { transform: scaleY(1.15); }
+  .recur .detail { display: flex; align-items: center; gap: 8px; min-height: 22px; font-size: 13px; }
+  .recur .detail .sw { width: 10px; height: 10px; border-radius: 3px; }
+  .recur .rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
+  .recur .row { display: grid; grid-template-columns: 7px 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line-soft); font-size: 13px; }
+  .recur .row .when { color: var(--muted); font-size: 12px; }
+  .recur .row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .recur .row .was { display: block; font-size: 11px; color: var(--muted); }
+  .recur .row.due .nm, .recur .row.due .amt { color: var(--muted); }
+  .recur .key { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+
+  /* 分类 */
+  .cats { display: flex; flex-direction: column; gap: 12px; }
+  .seg { display: flex; background: var(--bg); border-radius: var(--radius-ctl); padding: 3px; gap: 2px; }
+  .seg button { border: 0; background: transparent; border-radius: 8px; padding: 5px 14px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .seg button[aria-selected="true"] { background: var(--card); color: var(--ink); box-shadow: 0 1px 2px rgba(23, 32, 28, 0.12); }
+  .donut { position: relative; width: 176px; height: 176px; margin: 2px auto 4px; }
+  .donut svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .donut .c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; pointer-events: none; }
+  .donut .c span { font-size: 12px; color: var(--muted); max-width: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .donut circle[data-seg] { cursor: pointer; transition: opacity .12s; }
+  .donut .c b { font-size: 20px; }
+  .chev { display: inline-block; width: 14px; font-size: 16px; line-height: 1; color: var(--muted); transition: transform .15s; }
+  .chev.open { transform: rotate(90deg); }
+  .chev.none { visibility: hidden; }
+  .ghead { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; padding: 8px 0; border: 0; border-bottom: 1px solid var(--line); background: none; font-size: 12.5px; color: var(--muted); cursor: pointer; text-align: left; }
+  .crow { display: grid; grid-template-columns: 14px 10px minmax(0, 1fr) auto 52px; gap: 10px; align-items: center; width: 100%; padding: 10px 0; border: 0; background: none; text-align: left; cursor: pointer; }
+  .crow[disabled] { cursor: default; color: var(--ink); }
+  .cdot { width: 10px; height: 10px; border-radius: 3px; }
+  .pct { text-align: right; color: var(--muted); font-size: 12.5px; }
+  .cat { border-bottom: 1px solid var(--line-soft); }
+  .kids { padding: 0 0 6px 24px; }
+  .krow { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto 52px; gap: 10px; align-items: center; width: 100%; padding: 6px 0; border: 0; background: none; font-size: 13.5px; text-align: left; cursor: pointer; }
+  .kbar { display: block; height: 4px; background: var(--bg); border-radius: 999px; overflow: hidden; margin-top: 3px; }
+  .kbar span { display: block; height: 100%; opacity: .7; }
+  .tx { margin: 2px 0 8px 24px; padding: 2px 12px; background: var(--sunken); border-radius: var(--radius-ctl); }
+  .tx .r { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line-soft); font-size: 13px; }
+  .tx .r:last-child { border-bottom: 0; }
+
+  /* 当天流水；搜索时这张卡片显示结果，并排到这一栏最上面 */
+  .page.searching #day { order: -1; }
+  .dayhead { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .item { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line-soft); }
+  .icon { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: #FFFFFF; }
+  .tag { font-size: 11px; color: var(--muted); border: 1px solid var(--control); border-radius: 4px; padding: 0 5px; white-space: nowrap; }
+  .ell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .amt { font-weight: 600; white-space: nowrap; }
+  .amt.income { color: var(--income); } .amt.refund { color: var(--refund); }
+  .empty { padding: 36px 0; text-align: center; color: var(--muted); }
+
+  /* 小票商品明细 */
+  .itoggle { border: 0; background: none; padding: 0; font: inherit; font-size: 11.5px; color: var(--refund); cursor: pointer; white-space: nowrap; }
+  .items { margin: 0 0 10px 46px; padding: 6px 12px; background: var(--sunken); border-radius: var(--radius-ctl); font-size: 12.5px; }
+  .tx .items { margin: 0 0 8px 50px; background: var(--card); }
+  .items .ir { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+  .items .ir span:first-child { min-width: 0; overflow-wrap: anywhere; }
+  .items .ir.neg span:last-child { color: var(--refund); }
+  .items .foot { display: flex; justify-content: space-between; gap: 12px; border-top: 1px solid var(--line-soft); margin-top: 4px; padding-top: 4px; color: var(--muted); }
+
+  /* 预算：一行一个上限 */
+  .budget { display: grid; gap: 10px; }
+  .budget .brow { display: grid; grid-template-columns: minmax(64px, 150px) minmax(0, 1fr) auto; gap: 14px; align-items: center; font-size: 13px; }
+  .budget .track { height: 8px; background: var(--bg); border-radius: 999px; overflow: hidden; }
+  .budget .track span { display: block; height: 100%; border-radius: 999px; background: var(--refund); }
+  .budget .left { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  .budget .brow.over .track span { background: var(--expense); }
+  .budget .brow.over .left { color: var(--expense); }
+
+  /* 全年：十二个月的支出和按父类的合计 */
+  .ybars { height: 96px; display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; margin-top: 14px; border-bottom: 1px solid var(--control); }
+  .ybars .ym { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 3px; border: 0; background: none; padding: 0; cursor: pointer; }
+  .ybars .ym[disabled] { cursor: default; }
+  .ybars .b { width: 100%; max-width: 36px; border-radius: 4px 4px 1px 1px; background: var(--expense); opacity: .5; }
+  .ybars .ym.sel .b { opacity: 1; }
+  .ybars .v { font-size: 10.5px; line-height: 1; color: var(--muted); white-space: nowrap; }
+  .ylab { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; margin-top: 4px; text-align: center; font-size: 11px; color: var(--muted); }
+  .ysum { display: flex; flex-wrap: wrap; gap: 6px 28px; margin: 16px 0 8px; font-size: 13px; color: var(--muted); }
+  .ysum b { margin-left: 6px; font-size: 15px; color: var(--ink); }
+  .ycats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
+  .yrow { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto 52px; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line-soft); font-size: 13px; }
+
+  /* 账户 */
+  .accounts { display: flex; align-items: center; gap: 12px 28px; flex-wrap: wrap; padding: 4px 4px 0; }
+  .accounts .acc { display: flex; align-items: baseline; gap: 8px; }
+  .accounts .acc b { font-size: 16px; }
+  .accounts .note { flex: 1 1 260px; text-align: right; }
+
+  /* 手机：单栏，顺序 概览 → 预算 → 柱状图 → 分类 → 月历 → 当天流水 → 全年 → 账户 */
+  @media (max-width: 900px) {
+    .page { padding: 20px 16px 32px; gap: 14px; }
+    .top { order: -2; column-gap: 10px; }
+    .top-right { display: contents; }
+    .brand { flex: 1 1 auto; }
+    .search-toggle { order: 3; display: inline-flex; align-items: center; justify-content: center; width: 54px; align-self: stretch; border: 1px solid var(--line); background: var(--card); border-radius: 12px; cursor: pointer; }
+    .top-right .search { display: none; order: 4; width: 100%; height: 44px; font-size: 16px; }
+    .top.search-open .search { display: block; }
+    .month { order: 3; flex: 1 1 calc(100% - 72px); min-width: 0; justify-content: space-between; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 4px; }
+    .month button { width: 44px; height: 44px; border: 0; }
+    .card { padding: 16px 18px; }
+    .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 8px; padding: 18px; }
+    .summary > div { padding: 0; border-left: 0; }
+    .summary > div:first-child { grid-column: 1 / -1; padding-bottom: 12px; border-bottom: 1px solid var(--line-soft); }
+    .summary .big { font-size: 36px; }
+    .summary .mid { font-size: 15px; margin-top: 0; }
+    .summary .sub-hide { display: none; }
+    .cols, .col { display: contents; }
+    #chart { order: 1; } #cats { order: 2; } #calendar { order: 3; } #day { order: 4; }
+    #year { order: 5; } .accounts { order: 6; }
+    .budget .brow { grid-template-columns: minmax(0, 1fr) auto; row-gap: 4px; }
+    .budget .track { grid-column: 1 / -1; order: 3; }
+    .ybars, .ylab { gap: 4px; } .ybars .v { visibility: hidden; } .ybars .ym.sel .v { visibility: visible; }
+    .ycats { grid-template-columns: 1fr; }
+    .bars { height: 110px; gap: 3px; } .ticks { gap: 3px; }
+    .bars .v { font-size: 10px; visibility: hidden; }
+    .bars .day.sel .v { visibility: visible; }
+    .wk, .grid7 { gap: 4px; }
+    .cell { height: auto; min-height: 60px; padding: 5px 4px; border-radius: 8px; gap: 2px; }
+    .cell .dn { font-size: 14px; }
+    .cell .a { font-size: 10px; }
+    .rtag { font-size: 10px; gap: 3px; }
+    .cell .rtag .rn { display: none; }
+    .rtag::before { flex-basis: 5px; width: 5px; height: 5px; }
+    .cell .rtag::before { display: block; }
+    .cell .d { align-items: center; gap: 3px; }
+    .recur .rows { grid-template-columns: 1fr; }
+    .recur { padding: 12px; }
+    .cell .inc { display: none; }
+    .crow, .krow { min-height: 44px; padding: 0; }
+    .kids { padding-left: 18px; } .tx { margin-left: 0; }
+    .accounts .note { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<div class="page" id="page">
+  <header class="top" id="top">
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="1" y="1" width="26" height="26" rx="7" fill="#1F6B4F"/><path d="M8.5 20 L14 8 L19.5 20 M10.8 15.5 H17.2" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <b>Acost</b><span class="pill">只读看板</span>
+    </div>
+    <div class="month">
+      <button type="button" data-nav="-1" aria-label="上个月">‹</button>
+      <div class="label num" id="monthLabel"></div>
+      <button type="button" data-nav="1" aria-label="下个月">›</button>
+    </div>
+    <div class="top-right">
+      <div class="fresh"><i></i><span id="fresh"></span></div>
+      <button type="button" class="search-toggle" id="qToggle" data-qtoggle="1" aria-label="搜索账单" aria-expanded="false"><svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true"><circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M13.5 13.5 L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      <label class="sr-only" for="q">搜索账单</label>
+      <input class="search" id="q" placeholder="搜索商家、备注或商品" autocomplete="off" enterkeyhint="search">
+    </div>
+  </header>
+
+  <section class="card summary" aria-label="本月概览">
+    <div><span class="k">本月支出</span><span class="big num" id="sExp"></span><span class="hint" id="sExpNote"></span></div>
+    <div><span class="k">收入</span><span class="mid num" style="color: var(--income)" id="sInc"></span><span class="hint sub-hide" id="sIncNote"></span></div>
+    <div><span class="k">结余</span><span class="mid num" id="sBal"></span><span class="hint sub-hide">收入减支出；转账不计</span></div>
+    <div><span class="k">日常日均</span><span class="mid num" id="sAvg"></span><span class="hint sub-hide" id="sAvgNote"></span></div>
+  </section>
+
+  <section class="card budget" id="budget" aria-label="预算" hidden></section>
+
+  <div class="cols">
+    <div class="col">
+      <section class="card chart" id="chart" aria-label="日常支出">
+        <div class="card-head"><h2>日常支出 · 每日</h2></div>
+        <div class="bars" id="bars"></div>
+        <div class="ticks" id="ticks"></div>
+      </section>
+      <section class="card calendar" id="calendar" aria-label="月历">
+        <div class="card-head">
+          <h2>月历</h2>
+        </div>
+        <div class="recur" id="recur" aria-label="本月固定扣费"></div>
+        <div class="wk"><div>日</div><div>一</div><div>二</div><div>三</div><div>四</div><div>五</div><div>六</div></div>
+        <div class="grid7" id="grid"></div>
+      </section>
+    </div>
+    <div class="col">
+      <section class="card cats" id="cats" aria-label="分类">
+        <div class="card-head" style="align-items: center">
+          <h2>分类</h2>
+          <div class="seg" role="tablist" aria-label="支出或收入">
+            <button type="button" role="tab" data-mode="expense" aria-selected="true">支出</button>
+            <button type="button" role="tab" data-mode="income" aria-selected="false">收入</button>
+          </div>
+        </div>
+        <div class="donut"><svg viewBox="0 0 140 140" id="donut" role="img" aria-label="分类占比"></svg><div class="c"><span id="donutLabel"></span><b class="num" id="donutTotal"></b><span class="num" id="donutPct"></span></div></div>
+        <div id="groups"></div>
+      </section>
+      <section class="card" id="day" aria-label="当天流水">
+        <div class="dayhead"><h2 id="dayTitle" style="margin: 0; font-size: 16px"></h2><span style="display:flex;align-items:baseline;gap:10px"><span class="num hint" id="dayTotals"></span><button type="button" class="itoggle" id="qClear" data-clear="1" hidden>清除搜索</button></span></div>
+        <div id="dayList"></div>
+      </section>
+    </div>
+  </div>
+
+  <section class="card" id="year" aria-label="全年" hidden></section>
+
+  <section class="accounts" aria-label="账户" id="accounts"></section>
+</div>
+
+<!-- ======== 只替换这里的数据（示例数据，非真实账目） ======== -->
+<script type="application/json" id="acost-data">
+{
+"2026-10": {
+  "month": "2026-10",
+  "today": "2026-11-10",
+  "refreshedAt": "11 月 10 日 13:05 刷新",
+  "summary": { "expense_cents": 214641, "income_cents": 38500, "refund_cents": 0 },
+  "fixedCategories": ["住房", "车辆-车贷", "车辆-车险", "账单"],
+  "recurringView": "bar",
+  "budget": {"total_cents": 300000, "categories": {"餐饮": 60000, "购物": 20000}},
+  "recurring": [{"name": "房租", "category": "住房", "day": 1, "amount_cents": 80000}, {"name": "车贷", "category": "车辆-车贷", "day": 5, "amount_cents": 45000}, {"name": "健身房", "category": "账单-订阅", "match": "健身", "day": 3, "amount_cents": 2825}, {"name": "手机", "category": "账单-手机", "day": 9, "amount_cents": 4520}, {"name": "车险", "category": "车辆-车险", "day": 15, "amount_cents": 60492}, {"name": "Grok", "category": "账单-订阅", "match": "grok", "day": 19, "amount_cents": 4745}],
+  "categoryLabels": {"车辆-车贷": "车贷", "车辆-车险": "车险"},
+  "categoryColors": {"住房": "#1F6B4F", "车辆-车贷": "#3E5C76", "车辆-车险": "#7088A6", "车辆": "#6E7F73", "账单": "#5B6C8F", "餐饮": "#B5531C", "购物": "#8C4A7A", "交通": "#8A938E", "其他": "#A08A5A", "配送收入": "#2F5FA0", "项目收入": "#7A9CCB"},
+  "subcategoryLabels": {"Grocery": "买菜", "Eating out": "外食", "Coffee": "咖啡"},
+  "accounts": [{"name": "Spending", "balance_cents": 248612}, {"name": "Savings", "balance_cents": 550000}],
+  "accountsNote": "期初余额未设置，余额只按记录计算 · 数据来自 Acost 云端账本",
+  "entries": [
+    {"date": "2026-10-01", "time": "08:00", "type": "expense", "amount_cents": 80000, "merchant": "松林公寓", "category": "住房", "account": "Spending", "receipt": false, "note": "10 月房租"},
+    {"date": "2026-10-03", "time": "07:00", "type": "expense", "amount_cents": 2825, "merchant": "示例健身房", "category": "账单-订阅", "account": "Spending", "receipt": false, "note": "月费"},
+    {"date": "2026-10-05", "time": "09:00", "type": "expense", "amount_cents": 45000, "merchant": "示例车贷", "category": "车辆-车贷", "account": "Spending", "receipt": false, "note": "自动扣款"},
+    {"date": "2026-10-06", "time": "18:10", "type": "expense", "amount_cents": 5230, "merchant": "北街杂货", "category": "餐饮-Grocery", "account": "Spending", "receipt": true, "note": ""},
+    {"date": "2026-10-09", "time": "10:00", "type": "expense", "amount_cents": 4410, "merchant": "示例电信", "category": "账单-手机", "account": "Spending", "receipt": false, "note": "自动扣款"},
+    {"date": "2026-10-12", "time": "19:20", "type": "expense", "amount_cents": 1880, "merchant": "小院厨房", "category": "餐饮-Eating out", "account": "Spending", "receipt": true, "note": ""},
+    {"date": "2026-10-15", "time": "09:00", "type": "expense", "amount_cents": 60492, "merchant": "示例车险", "category": "车辆-车险", "account": "Spending", "receipt": false, "note": "自动扣款"},
+    {"date": "2026-10-18", "time": "14:05", "type": "expense", "amount_cents": 3299, "merchant": "纸间书店", "category": "购物", "account": "Spending", "receipt": true, "note": ""},
+    {"date": "2026-10-19", "time": "06:30", "type": "expense", "amount_cents": 4745, "merchant": "Grok", "category": "账单-订阅", "account": "Spending", "receipt": false, "note": "月费"},
+    {"date": "2026-10-20", "time": "12:00", "type": "income", "amount_cents": 38500, "merchant": "配送收入 · 第三周", "category": "配送收入", "account": "Spending", "receipt": false, "note": ""},
+    {"date": "2026-10-24", "time": "16:40", "type": "expense", "amount_cents": 6120, "merchant": "周末市集", "category": "餐饮-Grocery", "account": "Spending", "receipt": true, "note": ""},
+    {"date": "2026-10-28", "time": "08:50", "type": "expense", "amount_cents": 640, "merchant": "湖畔咖啡", "category": "餐饮-Coffee", "account": "Spending", "receipt": true, "note": ""}
+  ]
+},
+"2026-11": {
+  "month": "2026-11",
+  "today": "2026-11-10",
+  "refreshedAt": "11 月 10 日 13:05 刷新",
+  "summary": { "expense_cents": 176232, "income_cents": 73820, "refund_cents": 1650 },
+  "fixedCategories": ["住房", "车辆-车贷", "车辆-车险", "账单"],
+  "recurringView": "bar",
+  "budget": {"total_cents": 300000, "categories": {"餐饮": 60000, "购物": 20000}},
+  "recurring": [
+    { "name": "房租", "category": "住房", "day": 1, "amount_cents": 80000 },
+    { "name": "车贷", "category": "车辆-车贷", "day": 5, "amount_cents": 45000 },
+    { "name": "健身房", "category": "账单-订阅", "match": "健身", "day": 3, "amount_cents": 2825 },
+    { "name": "手机", "category": "账单-手机", "day": 9, "amount_cents": 4520 },
+    { "name": "车险", "category": "车辆-车险", "day": 15, "amount_cents": 60492 },
+    { "name": "Grok", "category": "账单-订阅", "match": "grok", "day": 19, "amount_cents": 4745 }
+  ],
+  "categoryLabels": { "车辆-车贷": "车贷", "车辆-车险": "车险" },
+  "categoryColors": { "住房": "#1F6B4F", "车辆-车贷": "#3E5C76", "车辆-车险": "#7088A6", "车辆": "#6E7F73", "账单": "#5B6C8F", "餐饮": "#B5531C", "购物": "#8C4A7A", "交通": "#8A938E", "其他": "#A08A5A", "配送收入": "#2F5FA0", "项目收入": "#7A9CCB" },
+  "subcategoryLabels": { "Grocery": "买菜", "Eating out": "外食", "Coffee": "咖啡" },
+  "accounts": [ { "name": "Spending", "balance_cents": 248612 }, { "name": "Savings", "balance_cents": 550000 } ],
+  "accountsNote": "期初余额未设置，余额只按记录计算 · 数据来自 Acost 云端账本",
+  "entries": [
+    { "date": "2026-11-01", "time": "08:00", "type": "expense", "amount_cents": 80000, "merchant": "松林公寓", "category": "住房", "account": "Spending", "receipt": false, "note": "11 月房租" },
+    { "date": "2026-11-02", "time": "08:45", "type": "expense", "amount_cents": 560, "merchant": "湖畔咖啡", "category": "餐饮-Coffee", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-02", "time": "17:40", "type": "expense", "amount_cents": 4832, "merchant": "北街杂货", "category": "餐饮-Grocery", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-03", "time": "13:20", "type": "expense", "amount_cents": 2375, "merchant": "纸间书店", "category": "购物", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-03", "time": "07:00", "type": "expense", "amount_cents": 2825, "merchant": "示例健身房", "category": "账单-订阅", "account": "Spending", "receipt": false, "note": "月费" },
+    { "date": "2026-11-03", "time": "18:20", "type": "expense", "amount_cents": 335, "merchant": "城市公交", "category": "交通", "account": "Spending", "receipt": false, "note": "" },
+    { "date": "2026-11-03", "time": "19:30", "type": "expense", "amount_cents": 600, "merchant": "市中心停车场", "category": "车辆-停车", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-04", "time": "12:00", "type": "income", "amount_cents": 32540, "merchant": "配送收入 · 第一周", "category": "配送收入", "account": "Spending", "receipt": false, "note": "" },
+    { "date": "2026-11-04", "time": "16:15", "type": "expense", "amount_cents": 6814, "merchant": "周末市集", "category": "餐饮-Grocery", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-05", "time": "09:00", "type": "expense", "amount_cents": 45000, "merchant": "示例车贷", "category": "车辆-车贷", "account": "Spending", "receipt": false, "note": "自动扣款" },
+    { "date": "2026-11-05", "time": "12:10", "type": "expense", "amount_cents": 1495, "merchant": "午间便当", "category": "餐饮-Eating out", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-05", "time": "19:05", "type": "expense", "amount_cents": 980, "merchant": "共享单车", "category": "交通", "account": "Spending", "receipt": false, "note": "" },
+    { "date": "2026-11-06", "time": "18:25", "type": "expense", "amount_cents": 3126, "merchant": "北街杂货", "category": "餐饮-Grocery", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-07", "time": "10:10", "type": "expense", "amount_cents": 725, "merchant": "湖畔咖啡", "category": "餐饮-Coffee", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-07", "time": "14:40", "type": "expense", "amount_cents": 5940, "merchant": "枫叶生活馆", "category": "购物", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-09", "time": "10:00", "type": "expense", "amount_cents": 4520, "merchant": "示例电信", "category": "账单-手机", "account": "Spending", "receipt": false, "note": "自动扣款" },
+    { "date": "2026-11-08", "time": "17:35", "type": "expense", "amount_cents": 4295, "merchant": "周末市集", "category": "餐饮-Grocery", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-08", "time": "19:00", "type": "expense", "amount_cents": 1800, "merchant": "城市展馆", "category": "其他", "account": "Spending", "receipt": false, "note": "" },
+    { "date": "2026-11-09", "time": "11:20", "type": "income", "amount_cents": 41280, "merchant": "示例摄影项目", "category": "项目收入", "account": "Spending", "receipt": false, "note": "" },
+    { "date": "2026-11-09", "time": "18:40", "type": "expense", "amount_cents": 2860, "merchant": "小院厨房", "category": "餐饮-Eating out", "account": "Spending", "receipt": true, "note": "" },
+    { "date": "2026-11-10", "time": "10:15", "type": "refund", "amount_cents": 1650, "merchant": "枫叶生活馆", "category": "购物", "account": "Spending", "receipt": false, "note": "关联 11 月 7 日原单" },
+    { "id": "sample-receipt-grocery", "date": "2026-11-10", "time": "12:47", "type": "expense", "amount_cents": 7540, "merchant": "北街杂货", "category": "餐饮-Grocery", "account": "Spending", "receipt": true, "note": "",
+      "items": [ { "name": "鸡蛋 24 只", "amount_cents": 899 }, { "name": "牛奶 4L", "amount_cents": 659 }, { "name": "白菜", "amount_cents": 412 }, { "name": "猪肉 2.1kg", "amount_cents": 2389 }, { "name": "苹果 3lb", "amount_cents": 599 }, { "name": "大米 8kg", "amount_cents": 2582 } ] },
+    { "id": "sample-receipt-daily", "date": "2026-11-10", "time": "12:47", "type": "expense", "amount_cents": 1260, "merchant": "北街杂货", "category": "购物", "account": "Spending", "receipt": true, "note": "同一张小票的日用部分",
+      "items": [ { "name": "纸巾 12 卷", "amount_cents": 999 }, { "name": "洗洁精", "amount_cents": 116 }, { "name": "HST", "amount_cents": 145 } ] }
+  ]
+}
+}
+</script>
+<!-- ======== 数据结束 ======== -->
+
+<script>
+(function () {
+  var RAW = JSON.parse(document.getElementById('acost-data').textContent);
+  // The data is one month ({month, entries, ...}) or several ({"YYYY-MM": {...}, ...}).
+  // With several, this page switches months itself. With one, the arrows are left to the host page.
+  var SINGLE = typeof RAW.month === 'string' && Array.isArray(RAW.entries);
+  var PAGES = {};
+  if (SINGLE) PAGES[RAW.month] = RAW;
+  else Object.keys(RAW).forEach(function (k) { if (/^\d{4}-\d{2}$/.test(k) && RAW[k] && Array.isArray(RAW[k].entries)) PAGES[k] = RAW[k]; });
+  var MONTHS = Object.keys(PAGES).sort();
+  function $(id) { return document.getElementById(id); }
+  if (!MONTHS.length) { $('monthLabel').textContent = '没有数据'; return; }
+  var WD = '日一二三四五六';
+  // Everything below is set by load() for the month on screen.
+  var D, FIXED, year, mon, daysInMonth, firstWeekday, todayDay;
+  var spend, order, fixedNet, dayDaily, dayFixed, dayInc, EXP, incomeList, INC, expNet, max, recDay, REC;
+  var state = { q: '', recSel: null, donutSel: null, sel: 1, mode: 'expense', groupOpen: { fixed: false, daily: true }, open: {}, leaf: {}, itemsOpen: {} };
+
+  // A fixed entry may name a whole parent ("Housing") or one subcategory ("Car-Loan").
+  function groupKey(cat) { return FIXED[cat] ? cat : split(cat)[0]; }
+  function isFixed(cat) { return !!FIXED[cat] || !!FIXED[split(cat)[0]]; }
+  function label(k) { return (D.categoryLabels && D.categoryLabels[k]) || (split(k)[1] ? catLabel(k) : k); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function money(c) { var n = c < 0; c = Math.abs(c); return (n ? '−' : '') + 'C$' + (c / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+  function bare(c) { return money(c).replace('C$', ''); }
+  function split(cat) { var i = (cat || '').indexOf('-'); return i < 0 ? [cat || '其他', null] : [cat.slice(0, i), cat.slice(i + 1)]; }
+  function subLabel(s) { return (D.subcategoryLabels && D.subcategoryLabels[s]) || s; }
+  function color(p) { return (D.categoryColors && D.categoryColors[p]) || '#8A938E'; }
+  function dayOf(e) { return +e.date.slice(8, 10); }
+  function signed(e) { return e.type === 'refund' ? -e.amount_cents : e.amount_cents; }
+  function parentLabel(p) { return (D.categoryLabels && D.categoryLabels[p]) || p; }
+  function catLabel(cat) { var s = split(cat); return s[1] ? parentLabel(s[0]) + ' › ' + subLabel(s[1]) : parentLabel(s[0]); }
+  function monthName(m) { return +m.slice(0, 4) + ' 年 ' + +m.slice(5, 7) + ' 月'; }
+  // Every entry gets a stable key for its open/closed item list.
+  MONTHS.forEach(function (m) { PAGES[m].entries.forEach(function (e, i) { e._uid = e.id || (m + ':' + i); }); });
+  function hasItems(e) { return Array.isArray(e.items) && e.items.length > 0; }
+  function itemToggle(e) {
+    if (!hasItems(e)) return '';
+    var open = !!state.itemsOpen[e._uid];
+    return '<button type="button" class="itoggle" data-items="' + esc(e._uid) + '" aria-expanded="' + open + '">' + e.items.length + ' 件商品 ' + (open ? '收起' : '明细 ›') + '</button>';
+  }
+  function itemsBlock(e) {
+    if (!hasItems(e) || !state.itemsOpen[e._uid]) return '';
+    var sum = 0;
+    var rows = e.items.map(function (it) {
+      sum += it.amount_cents;
+      return '<div class="ir' + (it.amount_cents < 0 ? ' neg' : '') + '"><span>' + esc(it.name) + '</span><span class="num">' + money(it.amount_cents) + '</span></div>';
+    }).join('');
+    var foot = sum !== e.amount_cents ? '<div class="foot"><span>明细合计 ' + money(sum) + '</span><span>本笔 ' + money(e.amount_cents) + '</span></div>' : '';
+    return '<div class="items">' + rows + foot + '</div>';
+  }
+
+  function load(month) {
+    D = PAGES[month];
+    FIXED = {}; (D.fixedCategories || []).forEach(function (c) { FIXED[c] = true; });
+    var ym = D.month.split('-'); year = +ym[0]; mon = +ym[1];
+    daysInMonth = new Date(year, mon, 0).getDate();
+    firstWeekday = new Date(year, mon - 1, 1).getDay();
+    todayDay = D.today.slice(0, 7) === D.month ? +D.today.slice(8, 10) : (D.today > D.month ? daysInMonth : 0);
+
+    // Aggregate (expenses and refunds only; transfers and income are not spending).
+    spend = D.entries.filter(function (e) { return e.type === 'expense' || e.type === 'refund'; });
+    var pNet = {}, kNet = {}, kids = {}, cnt = {};
+    order = []; fixedNet = 0; dayDaily = {}; dayFixed = {}; dayInc = {};
+    spend.forEach(function (e) {
+      var s = split(e.category), p = groupKey(e.category), v = signed(e);
+      if (!(p in pNet)) { pNet[p] = 0; order.push(p); }
+      pNet[p] += v;
+      if (e.type === 'expense') cnt[p] = (cnt[p] || 0) + 1;
+      if (s[1] && p !== e.category) { var key = e.category; kNet[key] = (kNet[key] || 0) + v; (kids[p] = kids[p] || {})[key] = true; }
+      if (isFixed(e.category)) { fixedNet += v; dayFixed[dayOf(e)] = true; } else { dayDaily[dayOf(e)] = (dayDaily[dayOf(e)] || 0) + v; }
+    });
+    D.entries.forEach(function (e) { if (e.type === 'income') dayInc[dayOf(e)] = (dayInc[dayOf(e)] || 0) + e.amount_cents; });
+    order.sort(function (a, b) { return pNet[b] - pNet[a]; });
+    EXP = { net: pNet, kNet: kNet, kids: kids, order: order, cnt: cnt };
+    incomeList = D.entries.filter(function (e) { return e.type === 'income'; });
+    INC = { net: {}, kNet: {}, kids: {}, order: [], cnt: {} };
+    incomeList.forEach(function (e) {
+      var s = split(e.category), p = s[0];
+      if (!(p in INC.net)) { INC.net[p] = 0; INC.order.push(p); }
+      INC.net[p] += e.amount_cents;
+      INC.cnt[p] = (INC.cnt[p] || 0) + 1;
+      if (s[1]) { INC.kNet[e.category] = (INC.kNet[e.category] || 0) + e.amount_cents; (INC.kids[p] = INC.kids[p] || {})[e.category] = true; }
+    });
+    INC.order.sort(function (a, b) { return INC.net[b] - INC.net[a]; });
+    expNet = D.summary.expense_cents;
+    max = 0; for (var d = 1; d <= daysInMonth; d++) max = Math.max(max, dayDaily[d] || 0);
+    max = max || 1;
+
+    // Monthly fixed charges: matched against this month's entries by category (and optional text).
+    // Charges are taken in day order and each entry counts once, so two charges of the same
+    // item in one month (every two weeks) each find their own entry.
+    recDay = {};
+    var recUsed = [];
+    REC = (D.recurring || []).slice().sort(function (a, b) { return a.day - b.day; }).map(function (r) {
+      var want = (r.match || '').toLowerCase();
+      var hit = D.entries.filter(function (e) {
+        return recUsed.indexOf(e) < 0 && e.type === 'expense' && (e.category === r.category || (e.category || '').indexOf(r.category + '-') === 0)
+          && (!want || ((e.merchant || '') + ' ' + (e.note || '')).toLowerCase().indexOf(want) >= 0);
+      }).sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; })[0];
+      if (hit) recUsed.push(hit);
+      // An automatic entry for a charge whose amount varies is still an estimate until the bill is confirmed.
+      var est = !!(hit && r.estimate && (hit.note || '').indexOf('固定扣费自动记账') >= 0);
+      var item = { name: r.name, paid: !!hit, est: est, expected: r.amount_cents, actual: hit ? hit.amount_cents : null,
+                   day: hit ? dayOf(hit) : Math.min(r.day, daysInMonth) };
+      // Not started yet, or cancelled before this month's charge: nothing is due, so leave it out.
+      var due = D.month + '-' + ('0' + Math.min(r.day, daysInMonth)).slice(-2);
+      if (!hit && ((r.start && due < r.start) || (r.end && due > r.end))) return null;
+      (recDay[item.day] = recDay[item.day] || []).push(item);
+      return item;
+    }).filter(Boolean);
+    REC.sort(function (a, b) { return a.day - b.day; });
+
+    state.recSel = null; state.donutSel = null; state.sel = todayDay || 1;
+    renderStatic(); renderAll();
+  }
+
+  function renderStatic() {
+    $('monthLabel').textContent = year + ' 年 ' + mon + ' 月';
+    if (!SINGLE) {
+      var at = MONTHS.indexOf(D.month);
+      document.querySelectorAll('[data-nav]').forEach(function (b) { b.disabled = !MONTHS[at + (+b.dataset.nav)]; });
+    }
+    $('fresh').textContent = D.refreshedAt;
+    var bal = D.summary.income_cents - D.summary.expense_cents;
+    var incCount = D.entries.filter(function (e) { return e.type === 'income'; }).length;
+    $('sExp').textContent = money(D.summary.expense_cents);
+    $('sExpNote').textContent = '已扣除退款 ' + money(D.summary.refund_cents);
+    $('sInc').textContent = money(D.summary.income_cents);
+    $('sIncNote').textContent = incCount + ' 笔';
+    $('sBal').textContent = money(bal);
+    $('sBal').style.color = bal < 0 ? 'var(--expense)' : 'var(--refund)';
+    var elapsed = todayDay || daysInMonth;
+    $('sAvg').textContent = money(Math.round((expNet - fixedNet) / elapsed));
+    $('sAvgNote').textContent = '不含固定支出 · 第 ' + elapsed + ' / ' + daysInMonth + ' 天';
+    $('accounts').innerHTML = '<span class="muted" style="font-size:13px">账户余额</span>' + D.accounts.map(function (a) {
+      return '<span class="acc"><span>' + esc(a.name) + '</span><b class="num">' + money(a.balance_cents) + '</b></span>';
+    }).join('') + '<span class="hint note">' + esc(D.accountsNote || '') + '</span>';
+    renderBudget(); renderYear();
+  }
+
+  // Spending limits: the month's total first, then each category that has one.
+  function renderBudget() {
+    var B = D.budget || {}, rows = [];
+    if (B.total_cents > 0) rows.push(['总预算', expNet, B.total_cents]);
+    Object.keys(B.categories || {}).forEach(function (k) {
+      var used = 0;
+      spend.forEach(function (e) { if (e.category === k || (e.category || '').indexOf(k + '-') === 0) used += signed(e); });
+      if (B.categories[k] > 0) rows.push([label(k), used, B.categories[k]]);
+    });
+    $('budget').hidden = !rows.length;
+    $('budget').innerHTML = !rows.length ? '' : '<div class="card-head"><h2>预算</h2></div>' + rows.map(function (r) {
+      var over = r[1] > r[2], pct = Math.max(0, Math.min(100, r[1] / r[2] * 100));
+      return '<div class="brow' + (over ? ' over' : '') + '"><span class="ell">' + esc(r[0]) + '</span>' +
+        '<span class="track"><span style="width:' + pct.toFixed(1) + '%"></span></span>' +
+        '<span class="left num">' + money(r[1]) + ' / ' + money(r[2]) + ' · ' + (over ? '超 ' + money(r[1] - r[2]) : '剩 ' + money(r[2] - r[1])) + '</span></div>';
+    }).join('');
+  }
+
+  // The year of the month on screen, from the months that were put into the page.
+  function renderYear() {
+    var y = D.month.slice(0, 4), months = MONTHS.filter(function (m) { return m.slice(0, 4) === y; });
+    var show = !SINGLE && months.length > 1;
+    $('year').hidden = !show;
+    if (!show) { $('year').innerHTML = ''; return; }
+    var exp = 0, inc = 0, top = 0, net = {}, keys = [];
+    months.forEach(function (m) {
+      var P = PAGES[m];
+      exp += P.summary.expense_cents; inc += P.summary.income_cents; top = Math.max(top, P.summary.expense_cents);
+      P.entries.forEach(function (e) {
+        if (e.type !== 'expense' && e.type !== 'refund') return;
+        var p = split(e.category)[0];
+        if (!(p in net)) { net[p] = 0; keys.push(p); }
+        net[p] += signed(e);
+      });
+    });
+    keys = keys.filter(function (p) { return net[p] > 0; }).sort(function (a, b) { return net[b] - net[a]; });
+    var bars = '', labs = '';
+    for (var i = 1; i <= 12; i++) {
+      var m = y + '-' + ('0' + i).slice(-2), P = PAGES[m], v = P ? P.summary.expense_cents : 0;
+      bars += '<button type="button" class="ym' + (m === D.month ? ' sel' : '') + '" data-month="' + m + '"' + (P ? '' : ' disabled') +
+        ' aria-label="' + i + ' 月 ' + (P ? '支出 ' + money(v) : '没有数据') + '"><span class="v num">' + (v > 0 ? Math.round(v / 100) : '') + '</span>' +
+        '<span class="b" style="height:' + (v > 0 && top > 0 ? 'max(3px, calc((100% - 16px) * ' + (v / top).toFixed(4) + '))' : '0') + '"></span></button>';
+      labs += '<div class="num">' + i + '</div>';
+    }
+    var span = months.length === 12 ? '' : +months[0].slice(5) + '–' + +months[months.length - 1].slice(5) + ' 月';
+    $('year').innerHTML = '<div class="card-head"><h2>' + +y + ' 年</h2><span class="hint">' + span + '</span></div>' +
+      '<div class="ybars">' + bars + '</div><div class="ylab">' + labs + '</div>' +
+      '<div class="ysum"><span>支出<b class="num">' + money(exp) + '</b></span><span>收入<b class="num">' + money(inc) + '</b></span>' +
+      '<span>结余<b class="num">' + money(inc - exp) + '</b></span><span>月均支出<b class="num">' + money(Math.round(exp / months.length)) + '</b></span></div>' +
+      '<div class="ycats">' + keys.map(function (p) {
+        return '<div class="yrow"><span class="cdot" style="background:' + esc(color(p)) + '"></span><span class="ell">' + esc(parentLabel(p)) + '</span>' +
+          '<span class="num" style="font-weight:600">' + money(net[p]) + '</span><span class="pct num">' + (exp > 0 ? (net[p] / exp * 100).toFixed(1) + '%' : '') + '</span></div>';
+      }).join('') + '</div>';
+  }
+
+  function recTags(d) {
+    var list = recDay[d] || [];
+    if (!list.length) return '';
+    var first = list[0];
+    var title = list.map(function (r) { return r.name + (r.paid ? (r.est ? ' 已扣，预计 ' : ' 已扣 ') + money(r.actual) : ' 待扣约 ' + money(r.expected)); }).join('；');
+    return '<span class="rtag ' + (first.paid ? 'paid' : 'due') + '" title="' + esc(title) + '"><span class="rn">' + esc(first.name) + (list.length > 1 ? ' +' + (list.length - 1) : '') + '</span></span>';
+  }
+  var REC_COLORS = ['#1F6B4F', '#3E5C76', '#B5531C', '#8C4A7A', '#C98A2B', '#5B8C85', '#7088A6', '#A08A5A'];
+  function recColor(i) { return REC_COLORS[i % REC_COLORS.length]; }
+  function renderRecurring() {
+    $('recur').hidden = !REC.length;
+    if (!REC.length) return;
+    var paid = 0, due = 0;
+    var rows = REC.map(function (r) {
+      if (r.paid) paid += r.actual; else due += r.expected;
+      var differs = r.paid && r.actual !== r.expected;
+      return '<div class="row ' + (r.paid ? 'paid' : 'due') + '"><span class="mark' + (r.paid ? '' : ' due') + '"></span><span class="when num">' + r.day + '日</span>' +
+        '<span class="nm">' + esc(r.name) + '</span>' +
+        '<span class="amt num" style="text-align:right">' + (r.paid ? (r.est ? '≈' : '') + money(r.actual) : '≈' + money(r.expected)) +
+        (differs ? '<span class="was">预计 ' + money(r.expected) + '</span>' : '') + '</span></div>';
+    }).join('');
+    var total = paid + due, pct = total ? Math.round(paid / total * 100) : 0;
+    if (D.recurringView !== 'list') {
+      var segs = REC.map(function (r, i) {
+        var v = r.paid ? r.actual : r.expected;
+        var look = r.paid ? 'background:' + recColor(i) : 'background:transparent;box-shadow:inset 0 0 0 1.5px ' + recColor(i) + ';border:1.5px dashed ' + recColor(i);
+        return '<button type="button" class="seg' + (r.paid ? '' : ' due') + (state.recSel === i ? ' on' : '') + '" data-rec="' + i + '" style="flex:' + v + ' 1 0;' + look + '" aria-label="' + esc(r.name + (r.paid ? ' 已扣' : ' 待扣')) + '"></button>';
+      }).join('');
+      var r = REC[state.recSel], detail = '';
+      if (r) detail = '<span class="sw" style="background:' + recColor(state.recSel) + '"></span><b>' + esc(r.name) + '</b><span class="muted">' + r.day + '日</span>' +
+        '<b class="num">' + (r.paid ? (r.est ? '≈' : '') + money(r.actual) : '≈' + money(r.expected)) + '</b><span class="muted">' + (r.paid ? (r.est ? '已扣，金额为预计' : '已扣') : '待扣') +
+        (r.paid && r.actual !== r.expected ? '，预计 ' + money(r.expected) : '') + '</span>';
+      var headBar = '<div class="head"><span><b>本月固定扣费</b>&nbsp;&nbsp;已扣 <b class="num">' + money(paid) + '</b> / 共约 <b class="num">' + money(total) + '</b></span></div>';
+      $('recur').innerHTML = headBar + '<div class="stack">' + segs + '</div>' + (detail ? '<div class="detail">' + detail + '</div>' : '');
+      return;
+    }
+    $('recur').innerHTML = '<div class="head"><span><b>本月固定扣费</b>&nbsp;&nbsp;已扣 <b class="num">' + money(paid) + '</b> / 共约 <b class="num">' + money(total) + '</b></span>' +
+      '<span class="key"><span class="mark"></span>已扣<span class="mark due"></span>待扣</span></div>' +
+      '<div class="bar" role="img" aria-label="已扣 ' + pct + '%"><span style="width:' + pct + '%"></span></div>' +
+      '<div class="rows">' + rows + '</div>';
+  }
+
+  // Calendar amounts carry their sign and currency; the currency hides on phones.
+  function cellMoney(c) { return (c < 0 ? '−' : '+') + bare(Math.abs(c)); }
+
+  function level(v) { if (!v) return 0; var r = v / max; return r < 0.25 ? 1 : r < 0.5 ? 2 : r < 0.8 ? 3 : 4; }
+
+  function renderChartAndCalendar() {
+    var bars = '', ticks = '', grid = '';
+    for (var i = 1; i <= daysInMonth; i++) {
+      var v = dayDaily[i] || 0, fut = todayDay && i > todayDay, sel = i === state.sel;
+      var h = fut ? '3px' : (v ? 'max(4px, calc((100% - 16px) * ' + (v / max).toFixed(4) + '))' : '2px');
+      bars += '<button type="button" class="day' + (fut ? ' future' : '') + (sel ? ' sel' : '') + '" data-day="' + i + '" aria-label="' + mon + ' 月 ' + i + ' 日 日常支出 ' + money(v) + '">' +
+        '<span class="v num">' + (v && !fut ? Math.round(v / 100) : '') + '</span><span class="b" style="height:' + h + '"></span></button>';
+      ticks += '<div class="num' + (sel ? ' sel' : '') + '"><span>' + ((i === 1 || i % 5 === 0 || sel) ? i : '&nbsp;') + '</span></div>';
+    }
+    for (var b = 0; b < firstWeekday; b++) grid += '<div class="cell blank"></div>';
+    for (var j = 1; j <= daysInMonth; j++) {
+      var dv = dayDaily[j] || 0, lv = level(dv), f = todayDay && j > todayDay;
+      grid += '<button type="button" class="cell h' + lv + (f ? ' future' : '') + (j === state.sel ? ' sel' : '') + '" data-day="' + j + '" aria-pressed="' + (j === state.sel) + '" style="background:var(--heat-' + lv + ')" aria-label="' + mon + ' 月 ' + j + ' 日' + (dayFixed[j] ? '，有固定支出' : '') + '">' +
+        '<span class="d"><span class="dn">' + j + '</span>' + (dayFixed[j] && !recDay[j] ? '<span class="fx">●</span>' : '') + recTags(j) + '</span>' +
+        '<span class="a num">' + (dv ? cellMoney(-dv) : '') + '</span>' +
+        (dayInc[j] ? '<span class="inc num">' + cellMoney(dayInc[j]) + '</span>' : '') + '</button>';
+    }
+    $('bars').innerHTML = bars; $('ticks').innerHTML = ticks; $('grid').innerHTML = grid;
+  }
+
+  function txRows(list) {
+    return '<div class="tx">' + list.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : (a.time < b.time ? 1 : -1); }).map(function (e) {
+      var r = e.type === 'refund', meta = [e.time]; if (r) meta.push('退款'); if (e.receipt) meta.push('有小票');
+      return '<div class="r"><span class="num muted" style="font-size:12px">' + mon + '/' + dayOf(e) + '</span>' +
+        '<span style="min-width:0;display:flex;flex-direction:column"><span class="ell">' + esc(e.merchant) + '</span><span class="muted" style="font-size:11.5px">' + esc(meta.filter(Boolean).join(' · ')) + ' ' + itemToggle(e) + '</span></span>' +
+        '<span class="amt num' + (e.type === 'income' ? ' income' : r ? ' refund' : '') + '">' + (r || e.type === 'income' ? '+' : '−') + money(e.amount_cents) + '</span></div>' + itemsBlock(e);
+    }).join('') + '</div>';
+  }
+
+  // Click a slice to read its name, amount, count and share in the middle; click it again to go back.
+  function donut(A, total) {
+    var r = 58, C = 2 * Math.PI * r, off = 0;
+    var parts = A.order.filter(function (p) { return A.net[p] > 0; });
+    var svg = '<circle cx="70" cy="70" r="' + r + '" fill="none" style="stroke:var(--bg)" stroke-width="18"></circle>';
+    parts.forEach(function (p) {
+      var len = A.net[p] / total * C, gap = parts.length > 1 ? Math.min(1.5, len / 2) : 0;
+      var on = state.donutSel === p, dim = state.donutSel != null && !on;
+      svg += '<circle data-seg="' + esc(p) + '" cx="70" cy="70" r="' + r + '" fill="none" stroke-width="' + (on ? 22 : 18) + '" style="stroke:' + esc(color(p)) + (dim ? ';opacity:.3' : '') + '" stroke-dasharray="' + (len - gap).toFixed(2) + ' ' + (C - len + gap).toFixed(2) + '" stroke-dashoffset="' + (-off).toFixed(2) + '"><title>' + esc(label(p)) + ' ' + money(A.net[p]) + '</title></circle>';
+      off += len;
+    });
+    return svg;
+  }
+
+  function renderCategories() {
+    var mode = state.mode, A = mode === 'income' ? INC : EXP;
+    var src = mode === 'income' ? incomeList : spend;
+    var total = mode === 'income' ? D.summary.income_cents : expNet;
+    document.querySelectorAll('[data-mode]').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.mode === mode)); });
+    if (state.donutSel != null && !(A.net[state.donutSel] > 0)) state.donutSel = null;
+    var picked = state.donutSel;
+    $('donut').innerHTML = donut(A, total);
+    $('donutLabel').textContent = picked != null ? label(picked) : (mode === 'income' ? '本月收入' : '本月支出');
+    $('donutTotal').textContent = money(picked != null ? A.net[picked] : total);
+    $('donutPct').textContent = picked != null ? (A.cnt[picked] || 0) + ' 笔 · ' + (A.net[picked] / total * 100).toFixed(1) + '%' : '';
+    var kids = A.kids, kNet = A.kNet, pNet = A.net;
+    function catBlock(p) {
+      var kidKeys = Object.keys(kids[p] || {}).sort(function (a, b) { return kNet[b] - kNet[a]; });
+      var fixed = mode === 'expense' && !!FIXED[p], hasKids = kidKeys.length > 0, canList = !fixed && !hasKids;
+      var pk = mode + ':' + p;
+      var open = hasKids ? !!state.open[pk] : canList && !!state.leaf[pk];
+      var html = '<div class="cat"><button type="button" class="crow" data-parent="' + esc(p) + '"' + (hasKids || canList ? ' aria-expanded="' + open + '"' : ' disabled') + '>' +
+        '<span class="chev' + (open ? ' open' : '') + (hasKids || canList ? '' : ' none') + '">›</span>' +
+        '<span class="cdot" style="background:' + esc(color(p)) + '"></span><span>' + esc(label(p)) + '</span>' +
+        '<span class="num" style="font-weight:600">' + money(pNet[p]) + '</span><span class="pct num">' + (pNet[p] / total * 100).toFixed(1) + '%</span></button>';
+      if (hasKids && open) {
+        html += '<div class="kids">' + kidKeys.map(function (k) {
+          var ko = !!state.leaf[mode + ':' + k];
+          return '<button type="button" class="krow" data-leaf="' + esc(k) + '" aria-expanded="' + ko + '"><span class="chev' + (ko ? ' open' : '') + '">›</span>' +
+            '<span style="min-width:0"><span>' + esc(subLabel(split(k)[1])) + '</span><span class="kbar"><span style="width:' + (kNet[k] / pNet[p] * 100).toFixed(1) + '%;background:' + esc(color(p)) + '"></span></span></span>' +
+            '<span class="num" style="font-weight:500">' + money(kNet[k]) + '</span><span class="pct num">' + (kNet[k] / pNet[p] * 100).toFixed(1) + '%</span></button>' +
+            (ko ? txRows(src.filter(function (e) { return e.category === k; })) : '');
+        }).join('') + '</div>';
+      }
+      if (canList && open) html += txRows(src.filter(function (e) { return (mode === 'income' ? split(e.category)[0] : groupKey(e.category)) === p; }));
+      return html + '</div>';
+    }
+    function group(id, label, list, total) {
+      var open = !!state.groupOpen[id];
+      return '<div><button type="button" class="ghead" data-group="' + id + '" aria-expanded="' + open + '"><span class="chev' + (open ? ' open' : '') + '">›</span><span>' + esc(label) + '</span><span class="num">' + money(total) + '</span></button>' +
+        (open ? list.map(catBlock).join('') : '') + '</div>';
+    }
+    if (mode === 'income') {
+      $('groups').innerHTML = '<div style="border-top:1px solid var(--line)">' + A.order.map(catBlock).join('') + '</div>';
+      return;
+    }
+    var fixedList = order.filter(function (p) { return FIXED[p]; }), dailyList = order.filter(function (p) { return !FIXED[p]; });
+    $('groups').innerHTML = group('fixed', '固定支出', fixedList, fixedNet) + group('daily', '日常支出', dailyList, expNet - fixedNet);
+  }
+
+  function dateLabel(e) { var y = +e.date.slice(0, 4); return (y !== year ? y + ' 年 ' : '') + +e.date.slice(5, 7) + ' 月 ' + dayOf(e) + ' 日'; }
+  function entryRow(e, withDate) {
+    var p = groupKey(e.category), kind = e.type;
+    var meta = [withDate ? dateLabel(e) : '', e.time, kind === 'income' ? '收入' : kind === 'refund' ? '退款 · ' + catLabel(e.category) : kind === 'transfer' ? '转账' : catLabel(e.category)];
+    if (D.accounts.length && e.account !== D.accounts[0].name) meta.push(e.account);
+    if (e.note) meta.push(e.note);
+    return '<div class="item"><span class="icon" style="background:' + esc(kind === 'income' ? 'var(--income)' : color(p)) + '">' + esc((e.merchant || (kind === 'transfer' ? '⇄' : '?')).slice(0, 1)) + '</span>' +
+      '<div style="min-width:0;display:flex;flex-direction:column"><div style="display:flex;align-items:center;gap:6px;min-width:0"><span class="ell" style="font-weight:500">' + esc(kind === 'transfer' && e.to_account ? e.account + ' → ' + e.to_account : e.merchant) + '</span>' + (e.receipt ? '<span class="tag">有小票</span>' : '') + '</div>' +
+      '<span class="ell muted" style="font-size:12px">' + esc(meta.filter(Boolean).join(' · ')) + '</span>' + (hasItems(e) ? '<span>' + itemToggle(e) + '</span>' : '') + '</div>' +
+      '<span class="amt num ' + (kind === 'income' ? 'income' : kind === 'refund' ? 'refund' : '') + '">' + (kind === 'expense' ? '−' : kind === 'transfer' ? '' : '+') + money(e.amount_cents) + '</span></div>' + itemsBlock(e);
+  }
+  function totalsText(list, count) {
+    var exp = 0, inc = 0;
+    list.forEach(function (e) { if (e.type === 'income') inc += e.amount_cents; else if (e.type !== 'transfer') exp += signed(e); });
+    var parts = count ? [list.length + ' 笔'] : [];
+    if (exp) parts.push('支出 ' + money(exp)); if (inc) parts.push('收入 ' + money(inc));
+    return parts.join(' · ');
+  }
+
+  // Search looks through every month in the data: merchant, note, category, account, date, amount and item names.
+  function haystack(e) {
+    if (e._hay) return e._hay;
+    var kind = e.type === 'income' ? '收入' : e.type === 'refund' ? '退款' : e.type === 'transfer' ? '转账' : '支出';
+    var parts = [e.merchant, e.note, e.category, e.category ? catLabel(e.category) : '', e.account, e.date, (e.amount_cents / 100).toFixed(2), kind];
+    if (hasItems(e)) e.items.forEach(function (it) { parts.push(it.name); });
+    return (e._hay = parts.join('\n').toLowerCase());
+  }
+  function searchResults() {
+    var terms = state.q.toLowerCase().split(/\s+/).filter(Boolean), found = [];
+    MONTHS.forEach(function (m) {
+      PAGES[m].entries.forEach(function (e) {
+        var h = haystack(e);
+        if (terms.every(function (t) { return h.indexOf(t) >= 0; })) found.push(e);
+      });
+    });
+    return found.sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : ((a.time || '') < (b.time || '') ? 1 : -1); });
+  }
+  var SEARCH_LIMIT = 200;
+  function renderSearch() {
+    var list = searchResults();
+    $('dayTitle').textContent = '搜索“' + state.q.trim() + '”';
+    $('dayTotals').textContent = totalsText(list, true);
+    var range = monthName(MONTHS[0]) + (MONTHS.length > 1 ? '到' + monthName(MONTHS[MONTHS.length - 1]) : '');
+    $('dayList').innerHTML = list.length
+      ? list.slice(0, SEARCH_LIMIT).map(function (e) { return entryRow(e, true); }).join('') +
+        (list.length > SEARCH_LIMIT ? '<div class="empty">只显示最近 ' + SEARCH_LIMIT + ' 笔</div>' : '')
+      : '<div class="empty">' + esc(range) + '的账单里没有找到</div>';
+  }
+
+  function renderDay() {
+    var searching = !!state.q.trim();
+    $('page').classList.toggle('searching', searching);
+    $('qClear').hidden = !searching;
+    if (searching) { renderSearch(); return; }
+    var d = state.sel, list = D.entries.filter(function (e) { return dayOf(e) === d; }).sort(function (a, b) { return a.time < b.time ? 1 : -1; });
+    var wd = WD.charAt(new Date(year, mon - 1, d).getDay());
+    $('dayTitle').textContent = mon + ' 月 ' + d + ' 日 星期' + wd + (D.today === D.month + '-' + ('0' + d).slice(-2) ? ' · 今天' : '');
+    $('dayList').innerHTML = list.length ? list.map(function (e) { return entryRow(e, false); }).join('')
+      : '<div class="empty">' + (todayDay && d > todayDay ? '还没到这一天' : '这一天没有账单') + '</div>';
+    $('dayTotals').textContent = totalsText(list, false);
+  }
+
+  function renderAll() { renderRecurring(); renderChartAndCalendar(); renderCategories(); renderDay(); }
+
+  function clearSearch() {
+    state.q = ''; $('q').value = '';
+    $('top').classList.remove('search-open'); $('qToggle').setAttribute('aria-expanded', 'false');
+  }
+  function onSearchInput(ev) { if (ev && ev.isComposing) return; state.q = $('q').value; renderDay(); }
+  $('q').addEventListener('input', onSearchInput);
+  $('q').addEventListener('compositionend', function () { onSearchInput(); });
+  $('q').addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && state.q) { clearSearch(); renderDay(); } });
+
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest('[data-nav],[data-month],[data-qtoggle],[data-clear],[data-seg],[data-rec],[data-items],[data-day],[data-group],[data-parent],[data-leaf],[data-mode]');
+    if (!t) return;
+    var d = t.dataset;
+    if (d.nav) {
+      if (SINGLE) return;
+      var to = MONTHS[MONTHS.indexOf(D.month) + (+d.nav)];
+      if (to) load(to);
+      return;
+    }
+    if (d.month) { if (PAGES[d.month] && d.month !== D.month) load(d.month); return; }
+    if (d.qtoggle) {
+      var shown = $('top').classList.toggle('search-open');
+      $('qToggle').setAttribute('aria-expanded', String(shown));
+      if (shown) $('q').focus(); else { clearSearch(); renderDay(); }
+      return;
+    }
+    if (d.clear) { clearSearch(); renderDay(); return; }
+    if (d.rec) { var ri = +d.rec; state.recSel = state.recSel === ri ? null : ri; renderRecurring(); return; }
+    if (d.items) { state.itemsOpen[d.items] = !state.itemsOpen[d.items]; renderCategories(); renderDay(); return; }
+    if (d.day) { if (state.q) clearSearch(); state.sel = +d.day; renderChartAndCalendar(); renderDay(); return; }
+    var m = state.mode, A = m === 'income' ? INC : EXP;
+    if (d.seg != null) {
+      var seg = d.seg, picked = state.donutSel === seg;
+      state.donutSel = picked ? null : seg;
+      if (!picked) {   // also open this category in the list below
+        if (m === 'expense') state.groupOpen[FIXED[seg] ? 'fixed' : 'daily'] = true;
+        if (A.kids[seg]) state.open[m + ':' + seg] = true;
+        else if (m === 'income' || !FIXED[seg]) state.leaf[m + ':' + seg] = true;
+      }
+    } else if (d.mode) { state.mode = d.mode; state.donutSel = null; }
+    else if (d.group) state.groupOpen[d.group] = !state.groupOpen[d.group];
+    else if (d.parent) {
+      var p = d.parent, key = m + ':' + p;
+      if (A.kids[p]) state.open[key] = !state.open[key];
+      else if (m === 'income' || !FIXED[p]) state.leaf[key] = !state.leaf[key];
+    } else if (d.leaf) { var lk = m + ':' + d.leaf; state.leaf[lk] = !state.leaf[lk]; }
+    renderCategories();
+  });
+
+  var newest = MONTHS[MONTHS.length - 1], current = (PAGES[newest].today || '').slice(0, 7);
+  load(PAGES[current] ? current : newest);
+})();
+</script>
+</body>
+</html>

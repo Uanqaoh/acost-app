@@ -1,0 +1,117 @@
+{
+ "comment": "Acost vault format v1 test vectors. All keys here are public test values.",
+ "inputs": {
+  "master_key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "data_key_hex": "202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f",
+  "ledger_id": "6f1c2b8e-4a0d-4e5b-9c3a-1f2e3d4c5b6a"
+ },
+ "recovery_code": {
+  "master_key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+  "code": "ACOST1-AAAQ-EAYE-AUDA-OCAJ-BIFQ-YDIO-B4IB-CEQT-CQKR-MFYY-DENB-WHA5-DYPY-B5ED"
+ },
+ "wrap": {
+  "key_version": 1,
+  "nonce_hex": "a1a1a1a1a1a1a1a1a1a1a1a1",
+  "aad_utf8": "acost-wrap-v1|6f1c2b8e-4a0d-4e5b-9c3a-1f2e3d4c5b6a|1",
+  "blob_b64": "AQAAAAGhoaGhoaGhoaGhoaGF4dl99ztX8+w0i2bEFen4QQBvcG7cxt9zEuqb7/De6uVI5xqEOqCHtifYgkdAEs8="
+ },
+ "idem": {
+  "fingerprint_key_hex": "0f2876fd1d9cb5d3426a09fac5c510b4089a7fb084ad028339e00ded8547e845",
+  "cases": [
+   {
+    "idempotency_key": "nations-2026-10-14-0042",
+    "tag_hex": "6086ed898abc198669b2f5f6a7322a931de576c1af8288c4c5d5840ebf093868"
+   },
+   {
+    "idempotency_key": "小票-2026-11-01:Food-Grocery",
+    "tag_hex": "85116ecdc3688508a48fb2cad5eb9c640d6a891bc0de866727cb725b794400ac"
+   },
+   {
+    "idempotency_key": "",
+    "tag_hex": "ec4c354290aa4b8b515525a3a4503e1342957e2c952cd88f8b0322add0090796"
+   }
+  ]
+ },
+ "padding": [
+  {
+   "plaintext_length": 0,
+   "padded_length": 256
+  },
+  {
+   "plaintext_length": 1,
+   "padded_length": 256
+  },
+  {
+   "plaintext_length": 254,
+   "padded_length": 256
+  },
+  {
+   "plaintext_length": 255,
+   "padded_length": 256
+  },
+  {
+   "plaintext_length": 256,
+   "padded_length": 512
+  },
+  {
+   "plaintext_length": 511,
+   "padded_length": 512
+  }
+ ],
+ "records": [
+  {
+   "record_id": "3b0e8f5c-9a7d-4e21-b6c4-a1f0e2d3c4b5",
+   "version": 1,
+   "key_version": 1,
+   "nonce_hex": "b1b1b1b1b1b1b1b1b1b1b1b1",
+   "aad_utf8": "acost-record-v1|6f1c2b8e-4a0d-4e5b-9c3a-1f2e3d4c5b6a|3b0e8f5c-9a7d-4e21-b6c4-a1f0e2d3c4b5|1|1",
+   "plaintext_utf8": "{\"data\":{\"account\":\"Spending\",\"amount_cents\":2607,\"category\":\"Food-Grocery\",\"created_at\":\"2026-10-14T14:55:00+00:00\",\"created_by\":\"11111111111111111111111111111111\",\"date\":\"2026-10-14\",\"deleted_at\":null,\"id\":\"3b0e8f5c9a7d4e21b6c4a1f0e2d3c4b5\",\"idempotency_key\":\"nations-2026-10-14-0042\",\"items\":[{\"amount_cents\":2462,\"name\":\"Bok choy 小白菜\"},{\"amount_cents\":145,\"name\":\"HST\"}],\"merchant\":\"Nations Fresh Foods\",\"note\":\"\",\"original_id\":null,\"receipt_url\":null,\"request_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"time\":\"10:53\",\"to_account\":null,\"type\":\"expense\",\"updated_at\":\"2026-10-14T14:55:00+00:00\",\"updated_by\":\"11111111111111111111111111111111\",\"version\":1},\"id\":\"3b0e8f5c-9a7d-4e21-b6c4-a1f0e2d3c4b5\",\"kind\":\"entry\",\"schema\":1,\"version\":1}",
+   "padded_length": 1024,
+   "blob_b64": "AQAAAAGxsbGxsbGxsbGxsbG161AeB/kcgdyoFPV33c3o7VvlAO5ijXk7yOoBwd8FNd3glrFRknhZY/fa98vXmGxMTjot/POA+bbA97+OhKpqjBOllrJj96XZA/WubO28e/my1zYFJyanLLNffp0C6FR6yIXHul6PrSSN/vKul9Pp9PPJwMXNvdDtbAa2yltgbYg89qpYttguqTgtmKVGHpFfTyK+ZrXsAWTwM94Ffa2ooHOHYxHYYXCcJ022DkpmnOp5ar+JYU0++2BoTvxjpXP0a3J/xf9M47GeZWUH8WQ3buQBq6FcPthhSuaC3latAjLpj3TwZ+NidSEpNYJuh5K7vRkQpDAn8QqyTUJQ6wIFqTLtC+LQzO+RbFuKmQ9lSUT0lHNiDK/QdajA7jqGDvcx2zaMAqYBlyQhp+QXqNmMR71zU+kv3XAzGx6zol0pUBojH+e15arh/zo54N7uBuZ23T6YEKDNI1EGsfX6XPfIU05qykFaRnOqbn3LD6MxkcRCQyghWnSP08k2bD7tnanhgDhECCHVCQxJCe+a62298TFAEl44Fzhjr1JQLHkqZyJ+wZE2V4Oj7vP7moBePsLk3H26LqGS5nK8DmBThWdCpqDGliU/14L0LQlPRLxg7LidITLqbrc9j1+NGx1CcXe+b/1sSmDzE/WN2WHdKgNPrWmuuRsdAnrZt2tvpNIQPcNSmOF17oLgle69bryaDNODy7gfl+1Tbd+vJGnhaFfDI3BjYemT3QXtNBIVoEAFO94HPIKITXu3yf5maaecG9etOE4cmg5paGH4f50IRYTArvpvv08LDy99WxEZGoopVTrSPzhSVcgk2ctBX3l24/4r0N3OBdYj4VIbovHEMC98AIkETJoglTE6yfdXzea9nlGCydrXMFPFQhH7NhYdkf2g3j0t1DIqDJyd3VkBPhcHDuOAxKFXhyqIKGOm8ZVuicfYWJE6+sLYIkWUSUPDcTBWIYQ+YEa9jt0DOgM2yKlT22MU0f8gos7zliK256J62kHQRuW2fpeleP3sz6ZnE2fZxaj8r5KflyVGwpGIpfsSnoLYXxzXVbfHSININ/HvcajbCzErNR+TPLPJG7vyZqzN1FsbL7NmENrIipQY7re+haG92y18Nn076fTQQCTw9G7UMAGEQRf1A8ItVuuWNPngblHok1HbnLmsabEJ83R/l7svUZu4o0fgqHXVJ0PXYASWMfcWBjfNAwbd2neDZrNgnsH0gVngs3rj4rIXgehG4c/watXsUh/V4Iry1WVxkXT8fjGYlxXqsov96lgWgT5dDWGRel8+1KtwOxjs/3quFjHqhvNdaRKtYSCUVHTlxHsnPF2oIRF2Nby0axwO9J1dyvYhl/YNBWu/l6hLb/Pkm5V++QvRIjyyfPkLaaBUMQ=="
+  },
+  {
+   "record_id": "9d8c7b6a-5f4e-4d3c-8b2a-190807060504",
+   "version": 2,
+   "key_version": 1,
+   "nonce_hex": "b2b2b2b2b2b2b2b2b2b2b2b2",
+   "aad_utf8": "acost-record-v1|6f1c2b8e-4a0d-4e5b-9c3a-1f2e3d4c5b6a|9d8c7b6a-5f4e-4d3c-8b2a-190807060504|2|1",
+   "plaintext_utf8": "{\"data\":{\"color\":\"#9886ab\",\"deleted\":true,\"name\":\"Shopping-Daily\",\"sort_order\":3},\"id\":\"9d8c7b6a-5f4e-4d3c-8b2a-190807060504\",\"kind\":\"category\",\"schema\":1,\"version\":2}",
+   "padded_length": 256,
+   "blob_b64": "AQAAAAGysrKysrKysrKysrJ6vZKe4Ajk+FlEKpownO6Fw80KabDlIjAeo9TxBvoACkFn5xEPdbEMKSD4rRFY49l9enZGEsDBWvHqDGVJvSD9BDJ47Jkf3UB4ztU1kQSQrTVTU6nrDnsXsITohIecdb+IVShUal8RYQRX8gwoG/83SQAmLVVBiTDHP2Nw1UnXIbJHOTDg/w0F+eLcNJ1CpQfamgHWvcDLxUNPwHjBVL735W0x0F5TkIS16Fbi1WpSERxhHAm5ip2Y7bNa710OCDOEANqgKryaO1aV0z4tUZ0cMJRFWd3LELFZX0ArXOGOpzrsmG96GhPhDJK0MCwLfOQ4Vd5fra7QzqZIfpbchsw8dzuQRrU13bkUdcJ87MSIZw=="
+  }
+ ],
+ "snapshot": {
+  "upto_seq": 2,
+  "key_version": 1,
+  "nonce_hex": "c1c1c1c1c1c1c1c1c1c1c1c1",
+  "aad_utf8": "acost-snapshot-v1|6f1c2b8e-4a0d-4e5b-9c3a-1f2e3d4c5b6a|2|1",
+  "plaintext_utf8": "{\"kind\":\"snapshot\",\"records\":[{\"doc\":{\"data\":{\"account\":\"Spending\",\"amount_cents\":2607,\"category\":\"Food-Grocery\",\"created_at\":\"2026-10-14T14:55:00+00:00\",\"created_by\":\"11111111111111111111111111111111\",\"date\":\"2026-10-14\",\"deleted_at\":null,\"id\":\"3b0e8f5c9a7d4e21b6c4a1f0e2d3c4b5\",\"idempotency_key\":\"nations-2026-10-14-0042\",\"items\":[{\"amount_cents\":2462,\"name\":\"Bok choy 小白菜\"},{\"amount_cents\":145,\"name\":\"HST\"}],\"merchant\":\"Nations Fresh Foods\",\"note\":\"\",\"original_id\":null,\"receipt_url\":null,\"request_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"time\":\"10:53\",\"to_account\":null,\"type\":\"expense\",\"updated_at\":\"2026-10-14T14:55:00+00:00\",\"updated_by\":\"11111111111111111111111111111111\",\"version\":1},\"id\":\"3b0e8f5c-9a7d-4e21-b6c4-a1f0e2d3c4b5\",\"kind\":\"entry\",\"schema\":1,\"version\":1},\"seq\":1},{\"doc\":{\"data\":{\"color\":\"#9886ab\",\"deleted\":true,\"name\":\"Shopping-Daily\",\"sort_order\":3},\"id\":\"9d8c7b6a-5f4e-4d3c-8b2a-190807060504\",\"kind\":\"category\",\"schema\":1,\"version\":2},\"seq\":2}],\"schema\":1,\"upto_seq\":2}",
+  "blob_b64": "AQAAAAHBwcHBwcHBwcHBwcEV6Y/dAatzIelhyKzskx8BhQbYmJ9cXhFEi1DQmsiGIeXTu9TW3wN+zPcJ1qAptV/YcErMgHPD0kK82JHS5FhKd/PeQxtZUDO0heXQKkGKfQMCcrrMMsLVny6HIAADN8pJpngcISRmDRrfWvFCUl6OVXsViP42AhnHm+aYmMJfgIEJC/BOqYjjK7zZJu8YHeoodYLpAuBEml7V3+xT2AVksHIcDUkHhgW6RZ1YOd7gLx3C8O0PWYlW5wQwegsgtSpQCldsvENwd3PDaU1INwY4qvBe4IViBIgGt2A6lg9/b0Ja5bbb5pd1BKzWqFBj35MVJRH8Zcfmi83biVGkUQrO4akVVLDPm4o0THKc4Qa2VqzN77CbY1vViYppmDY9P+jDZsjh2qiScrWS2Wdh1fOnUncIbAIZBvy5Qr4GEYsm8el73DWIfPwTLd7FdxVU21+EheoKLRmQziUm74YlzUwL6kMwCrM4IpFmlXlDM7Lyx0T9GqJhchSv4S5FViE0IcobSVEL5UdqOcDj9igVKT8kVaK20hYSPimjrLndwxfXrf7gsaJICUojJB6TefvG9e31zosdOWBN+y/ZcWCBP1J8GY+vQnHHMMp3KwSO5RfgXX20qcRamywg5ltTfqOtOUwM2NZvV0pNdb1JxdrobdhmK0WCeErjlG5YmYHTPRssmBhJduexLnJHDRTPJ/4CtMhVn885KJs5yWPBqaNGUh0g4GAZ8Ksurw0mpJRqGO4OWxMV6yoY0jmvPtu1Jh0QDo1MlGIXWIRhWVaH15rMtcZ1JwsBaFz1RmDEqVpzvF4sG5tT51lG+DsttvPsuV6GTIvI5KEitVg2Tf0cUiBZAPLdLoOptJSccmL/nej5SQrcjqFYk+6Am564wwnb2AGiyIUuAW86Z+0L1coXLshCIhKP8KZaJaLuvwwh3qdXYVQjZKITyVzJM8VZK19hJy75UUA2EZQ4LEHcQ/8JhvhKPronrn9fje+PtLCjmV1emohlqKr3KX/TnMajAV4lg0kUo2rIumUoewpl9PCm1IY4wumLXPF+40u41sidq8f0K4EXuDtEPLLU123yLkf2GpkYibP4HEKKLM6BwRIOszQi6Pw2OtBE2VtBZR84PVK8JK0XZqGJfcjnKwYWCX2wnOe4vobDxblVJO3rQv3YcYkjv7ZAR599/U9/RIW4pUAVguuaja3G4P66XBskt8Zbuuy79GdwczXELgJRSD3jqPWtdk7j2WSV/yz1hGdf+luZLEKrD7MdXblqgPORhOYcnASmt7VIiUtnNlAQTtJ2D+rnWRWrVGqiiV3wy9EecxeXcEKR+58VZhVEsag8daVfu1aXmMx9j9neFv8J4GVjvNfTNzviofQnPdOpozuzwe5UAyVJk+/Wi+V09UrcxRiGzLoPsEULZ/kF+YK3cgDDTU+NPby4qXHtNkM3zR1O8r06Mqt88r0Zqd5W+zaDK2jgKVWGGvTe3ID6LhddbEZ9dkCAd0Ar9KuNOHwkE19u+RiMfwEMLB4DYZoZa66uCB7//QdsbmET1oQs3ee0vvTNnXHZjpAHgyU8hlyO6pcH040zBlanlu9uioU631ZOAtQjxZwfk4lvmiJ5gLPZ4gCgcKDZzAAtCAHHYoLJTgjEV8q0VQRMCvhVagm3CtuwARtI970iZSO7qOr5Q0YwkzfUz1hzNvCjIo+xC3qNNVi74uizRvdl2s+ytiJeheanlsWcNnmw+a0="
+ },
+ "must_fail": [
+  {
+   "why": "last tag byte flipped",
+   "record_id": "3b0e8f5c-9a7d-4e21-b6c4-a1f0e2d3c4b5",
+   "version": 1,
+   "blob_b64": "AQAAAAGxsbGxsbGxsbGxsbG161AeB/kcgdyoFPV33c3o7VvlAO5ijXk7yOoBwd8FNd3glrFRknhZY/fa98vXmGxMTjot/POA+bbA97+OhKpqjBOllrJj96XZA/WubO28e/my1zYFJyanLLNffp0C6FR6yIXHul6PrSSN/vKul9Pp9PPJwMXNvdDtbAa2yltgbYg89qpYttguqTgtmKVGHpFfTyK+ZrXsAWTwM94Ffa2ooHOHYxHYYXCcJ022DkpmnOp5ar+JYU0++2BoTvxjpXP0a3J/xf9M47GeZWUH8WQ3buQBq6FcPthhSuaC3latAjLpj3TwZ+NidSEpNYJuh5K7vRkQpDAn8QqyTUJQ6wIFqTLtC+LQzO+RbFuKmQ9lSUT0lHNiDK/QdajA7jqGDvcx2zaMAqYBlyQhp+QXqNmMR71zU+kv3XAzGx6zol0pUBojH+e15arh/zo54N7uBuZ23T6YEKDNI1EGsfX6XPfIU05qykFaRnOqbn3LD6MxkcRCQyghWnSP08k2bD7tnanhgDhECCHVCQxJCe+a62298TFAEl44Fzhjr1JQLHkqZyJ+wZE2V4Oj7vP7moBePsLk3H26LqGS5nK8DmBThWdCpqDGliU/14L0LQlPRLxg7LidITLqbrc9j1+NGx1CcXe+b/1sSmDzE/WN2WHdKgNPrWmuuRsdAnrZt2tvpNIQPcNSmOF17oLgle69bryaDNODy7gfl+1Tbd+vJGnhaFfDI3BjYemT3QXtNBIVoEAFO94HPIKITXu3yf5maaecG9etOE4cmg5paGH4f50IRYTArvpvv08LDy99WxEZGoopVTrSPzhSVcgk2ctBX3l24/4r0N3OBdYj4VIbovHEMC98AIkETJoglTE6yfdXzea9nlGCydrXMFPFQhH7NhYdkf2g3j0t1DIqDJyd3VkBPhcHDuOAxKFXhyqIKGOm8ZVuicfYWJE6+sLYIkWUSUPDcTBWIYQ+YEa9jt0DOgM2yKlT22MU0f8gos7zliK256J62kHQRuW2fpeleP3sz6ZnE2fZxaj8r5KflyVGwpGIpfsSnoLYXxzXVbfHSININ/HvcajbCzErNR+TPLPJG7vyZqzN1FsbL7NmENrIipQY7re+haG92y18Nn076fTQQCTw9G7UMAGEQRf1A8ItVuuWNPngblHok1HbnLmsabEJ83R/l7svUZu4o0fgqHXVJ0PXYASWMfcWBjfNAwbd2neDZrNgnsH0gVngs3rj4rIXgehG4c/watXsUh/V4Iry1WVxkXT8fjGYlxXqsov96lgWgT5dDWGRel8+1KtwOxjs/3quFjHqhvNdaRKtYSCUVHTlxHsnPF2oIRF2Nby0axwO9J1dyvYhl/YNBWu/l6hLb/Pkm5V++QvRIjyyfPkLaaBUMA=="
+  },
+  {
+   "why": "replayed as version 2",
+   "record_id": "3b0e8f5c-9a7d-4e21-b6c4-a1f0e2d3c4b5",
+   "version": 2,
+   "blob_b64": "AQAAAAGxsbGxsbGxsbGxsbG161AeB/kcgdyoFPV33c3o7VvlAO5ijXk7yOoBwd8FNd3glrFRknhZY/fa98vXmGxMTjot/POA+bbA97+OhKpqjBOllrJj96XZA/WubO28e/my1zYFJyanLLNffp0C6FR6yIXHul6PrSSN/vKul9Pp9PPJwMXNvdDtbAa2yltgbYg89qpYttguqTgtmKVGHpFfTyK+ZrXsAWTwM94Ffa2ooHOHYxHYYXCcJ022DkpmnOp5ar+JYU0++2BoTvxjpXP0a3J/xf9M47GeZWUH8WQ3buQBq6FcPthhSuaC3latAjLpj3TwZ+NidSEpNYJuh5K7vRkQpDAn8QqyTUJQ6wIFqTLtC+LQzO+RbFuKmQ9lSUT0lHNiDK/QdajA7jqGDvcx2zaMAqYBlyQhp+QXqNmMR71zU+kv3XAzGx6zol0pUBojH+e15arh/zo54N7uBuZ23T6YEKDNI1EGsfX6XPfIU05qykFaRnOqbn3LD6MxkcRCQyghWnSP08k2bD7tnanhgDhECCHVCQxJCe+a62298TFAEl44Fzhjr1JQLHkqZyJ+wZE2V4Oj7vP7moBePsLk3H26LqGS5nK8DmBThWdCpqDGliU/14L0LQlPRLxg7LidITLqbrc9j1+NGx1CcXe+b/1sSmDzE/WN2WHdKgNPrWmuuRsdAnrZt2tvpNIQPcNSmOF17oLgle69bryaDNODy7gfl+1Tbd+vJGnhaFfDI3BjYemT3QXtNBIVoEAFO94HPIKITXu3yf5maaecG9etOE4cmg5paGH4f50IRYTArvpvv08LDy99WxEZGoopVTrSPzhSVcgk2ctBX3l24/4r0N3OBdYj4VIbovHEMC98AIkETJoglTE6yfdXzea9nlGCydrXMFPFQhH7NhYdkf2g3j0t1DIqDJyd3VkBPhcHDuOAxKFXhyqIKGOm8ZVuicfYWJE6+sLYIkWUSUPDcTBWIYQ+YEa9jt0DOgM2yKlT22MU0f8gos7zliK256J62kHQRuW2fpeleP3sz6ZnE2fZxaj8r5KflyVGwpGIpfsSnoLYXxzXVbfHSININ/HvcajbCzErNR+TPLPJG7vyZqzN1FsbL7NmENrIipQY7re+haG92y18Nn076fTQQCTw9G7UMAGEQRf1A8ItVuuWNPngblHok1HbnLmsabEJ83R/l7svUZu4o0fgqHXVJ0PXYASWMfcWBjfNAwbd2neDZrNgnsH0gVngs3rj4rIXgehG4c/watXsUh/V4Iry1WVxkXT8fjGYlxXqsov96lgWgT5dDWGRel8+1KtwOxjs/3quFjHqhvNdaRKtYSCUVHTlxHsnPF2oIRF2Nby0axwO9J1dyvYhl/YNBWu/l6hLb/Pkm5V++QvRIjyyfPkLaaBUMQ=="
+  },
+  {
+   "why": "moved to another record",
+   "record_id": "9d8c7b6a-5f4e-4d3c-8b2a-190807060504",
+   "version": 1,
+   "blob_b64": "AQAAAAGxsbGxsbGxsbGxsbG161AeB/kcgdyoFPV33c3o7VvlAO5ijXk7yOoBwd8FNd3glrFRknhZY/fa98vXmGxMTjot/POA+bbA97+OhKpqjBOllrJj96XZA/WubO28e/my1zYFJyanLLNffp0C6FR6yIXHul6PrSSN/vKul9Pp9PPJwMXNvdDtbAa2yltgbYg89qpYttguqTgtmKVGHpFfTyK+ZrXsAWTwM94Ffa2ooHOHYxHYYXCcJ022DkpmnOp5ar+JYU0++2BoTvxjpXP0a3J/xf9M47GeZWUH8WQ3buQBq6FcPthhSuaC3latAjLpj3TwZ+NidSEpNYJuh5K7vRkQpDAn8QqyTUJQ6wIFqTLtC+LQzO+RbFuKmQ9lSUT0lHNiDK/QdajA7jqGDvcx2zaMAqYBlyQhp+QXqNmMR71zU+kv3XAzGx6zol0pUBojH+e15arh/zo54N7uBuZ23T6YEKDNI1EGsfX6XPfIU05qykFaRnOqbn3LD6MxkcRCQyghWnSP08k2bD7tnanhgDhECCHVCQxJCe+a62298TFAEl44Fzhjr1JQLHkqZyJ+wZE2V4Oj7vP7moBePsLk3H26LqGS5nK8DmBThWdCpqDGliU/14L0LQlPRLxg7LidITLqbrc9j1+NGx1CcXe+b/1sSmDzE/WN2WHdKgNPrWmuuRsdAnrZt2tvpNIQPcNSmOF17oLgle69bryaDNODy7gfl+1Tbd+vJGnhaFfDI3BjYemT3QXtNBIVoEAFO94HPIKITXu3yf5maaecG9etOE4cmg5paGH4f50IRYTArvpvv08LDy99WxEZGoopVTrSPzhSVcgk2ctBX3l24/4r0N3OBdYj4VIbovHEMC98AIkETJoglTE6yfdXzea9nlGCydrXMFPFQhH7NhYdkf2g3j0t1DIqDJyd3VkBPhcHDuOAxKFXhyqIKGOm8ZVuicfYWJE6+sLYIkWUSUPDcTBWIYQ+YEa9jt0DOgM2yKlT22MU0f8gos7zliK256J62kHQRuW2fpeleP3sz6ZnE2fZxaj8r5KflyVGwpGIpfsSnoLYXxzXVbfHSININ/HvcajbCzErNR+TPLPJG7vyZqzN1FsbL7NmENrIipQY7re+haG92y18Nn076fTQQCTw9G7UMAGEQRf1A8ItVuuWNPngblHok1HbnLmsabEJ83R/l7svUZu4o0fgqHXVJ0PXYASWMfcWBjfNAwbd2neDZrNgnsH0gVngs3rj4rIXgehG4c/watXsUh/V4Iry1WVxkXT8fjGYlxXqsov96lgWgT5dDWGRel8+1KtwOxjs/3quFjHqhvNdaRKtYSCUVHTlxHsnPF2oIRF2Nby0axwO9J1dyvYhl/YNBWu/l6hLb/Pkm5V++QvRIjyyfPkLaaBUMQ=="
+  },
+  {
+   "why": "unknown format byte",
+   "record_id": "3b0e8f5c-9a7d-4e21-b6c4-a1f0e2d3c4b5",
+   "version": 1,
+   "blob_b64": "AgAAAAGxsbGxsbGxsbGxsbG161AeB/kcgdyoFPV33c3o7VvlAO5ijXk7yOoBwd8FNd3glrFRknhZY/fa98vXmGxMTjot/POA+bbA97+OhKpqjBOllrJj96XZA/WubO28e/my1zYFJyanLLNffp0C6FR6yIXHul6PrSSN/vKul9Pp9PPJwMXNvdDtbAa2yltgbYg89qpYttguqTgtmKVGHpFfTyK+ZrXsAWTwM94Ffa2ooHOHYxHYYXCcJ022DkpmnOp5ar+JYU0++2BoTvxjpXP0a3J/xf9M47GeZWUH8WQ3buQBq6FcPthhSuaC3latAjLpj3TwZ+NidSEpNYJuh5K7vRkQpDAn8QqyTUJQ6wIFqTLtC+LQzO+RbFuKmQ9lSUT0lHNiDK/QdajA7jqGDvcx2zaMAqYBlyQhp+QXqNmMR71zU+kv3XAzGx6zol0pUBojH+e15arh/zo54N7uBuZ23T6YEKDNI1EGsfX6XPfIU05qykFaRnOqbn3LD6MxkcRCQyghWnSP08k2bD7tnanhgDhECCHVCQxJCe+a62298TFAEl44Fzhjr1JQLHkqZyJ+wZE2V4Oj7vP7moBePsLk3H26LqGS5nK8DmBThWdCpqDGliU/14L0LQlPRLxg7LidITLqbrc9j1+NGx1CcXe+b/1sSmDzE/WN2WHdKgNPrWmuuRsdAnrZt2tvpNIQPcNSmOF17oLgle69bryaDNODy7gfl+1Tbd+vJGnhaFfDI3BjYemT3QXtNBIVoEAFO94HPIKITXu3yf5maaecG9etOE4cmg5paGH4f50IRYTArvpvv08LDy99WxEZGoopVTrSPzhSVcgk2ctBX3l24/4r0N3OBdYj4VIbovHEMC98AIkETJoglTE6yfdXzea9nlGCydrXMFPFQhH7NhYdkf2g3j0t1DIqDJyd3VkBPhcHDuOAxKFXhyqIKGOm8ZVuicfYWJE6+sLYIkWUSUPDcTBWIYQ+YEa9jt0DOgM2yKlT22MU0f8gos7zliK256J62kHQRuW2fpeleP3sz6ZnE2fZxaj8r5KflyVGwpGIpfsSnoLYXxzXVbfHSININ/HvcajbCzErNR+TPLPJG7vyZqzN1FsbL7NmENrIipQY7re+haG92y18Nn076fTQQCTw9G7UMAGEQRf1A8ItVuuWNPngblHok1HbnLmsabEJ83R/l7svUZu4o0fgqHXVJ0PXYASWMfcWBjfNAwbd2neDZrNgnsH0gVngs3rj4rIXgehG4c/watXsUh/V4Iry1WVxkXT8fjGYlxXqsov96lgWgT5dDWGRel8+1KtwOxjs/3quFjHqhvNdaRKtYSCUVHTlxHsnPF2oIRF2Nby0axwO9J1dyvYhl/YNBWu/l6hLb/Pkm5V++QvRIjyyfPkLaaBUMQ=="
+  }
+ ]
+}

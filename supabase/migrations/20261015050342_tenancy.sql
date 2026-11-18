@@ -1,2 +1,0 @@
--- Reserved CLI-generated migration. The abandoned multi-tenant design was never
--- deployed. Each person uses a separate Supabase project; no tenancy tables.

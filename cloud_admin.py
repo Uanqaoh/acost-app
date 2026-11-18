@@ -3,16 +3,13 @@
 from __future__ import annotations
 import argparse
 import base64
-import datetime as dt
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
 import secrets
-import sqlite3
 import sys
-import tempfile
 import uuid
 import zipfile
 from client_config import ClientError, Connection, default_config, load_connection, save_connection, validate_url
@@ -195,56 +192,6 @@ def read_bundle(path):
                 raise ClientError('小票内容与账本清单不一致。')
         return snapshot, contents, manifest['validation']
 
-def sqlite_bundle(database, receipt_dir, output):
-    source_path = Path(database).expanduser().resolve(strict=True)
-    receipts_path = Path(receipt_dir).expanduser().resolve(strict=True)
-    with tempfile.TemporaryDirectory(prefix='qiao-migrate-') as temp:
-        backup_path = Path(temp)/'snapshot.sqlite3'
-        source = sqlite3.connect(source_path.as_uri()+'?mode=ro', uri=True)
-        target = sqlite3.connect(backup_path)
-        try:
-            source.backup(target)
-            target.row_factory = sqlite3.Row
-            if target.execute('pragma integrity_check').fetchone()[0] != 'ok' or target.execute('pragma foreign_key_check').fetchall():
-                raise ClientError('原数据库完整性检查失败。')
-            tables = {r[0] for r in target.execute("select name from sqlite_master where type='table'")}
-            snapshot = {'format':'qiao-ledger-snapshot','version':1,'schema_version':2,
-                        'exported_at':dt.datetime.now(dt.timezone.utc).isoformat()}
-            for name in ('settings','accounts','categories','entries','receipts','audit_events'):
-                snapshot[name] = [dict(r) for r in target.execute('select * from '+name)] if name in tables else []
-        finally:
-            source.close()
-            target.close()
-    for e in snapshot['entries']:
-        e.setdefault('version',1)
-        e.setdefault('created_by','legacy')
-        e.setdefault('updated_by','legacy')
-    for index,a in enumerate(snapshot['accounts'],1): a.setdefault('sort_order',index)
-    for index,c in enumerate(snapshot['categories'],1): c.setdefault('sort_order',index)
-    for a in snapshot['audit_events']:
-        for key in ('before_json','after_json'):
-            if isinstance(a.get(key),str): a[key]=json.loads(a[key])
-    settings = {x['key']:x['value'] for x in snapshot['settings']}
-    if settings.get('demo') == 'true':
-        raise ClientError('演示账本不能作为正式迁移来源。')
-    settings['schema_version']='2'
-    settings.setdefault('opening_balances_initialized','false')
-    settings.setdefault('timezone','America/Toronto')
-    snapshot['settings']=[{'key':k,'value':v} for k,v in settings.items()]
-    known={r['filename'] for r in snapshot['receipts']}
-    required={e['receipt_url'][14:] for e in snapshot['entries'] if e.get('receipt_url')}
-    for name in sorted(required-known):
-        if not RECEIPT.fullmatch(name): raise ClientError('原始小票路径无效。')
-        p=receipts_path/name
-        if p.is_symlink(): raise ClientError('小票不能是符号链接。')
-        data=p.read_bytes()
-        snapshot['receipts'].append({'filename':name,'sha256':hashlib.sha256(data).hexdigest(),'size':len(data),'created_at':snapshot['exported_at'],'created_by':'legacy'})
-    def get_receipt(name):
-        p=receipts_path/name
-        if p.is_symlink(): raise ClientError('小票不能是符号链接。')
-        return p.read_bytes()
-    return write_bundle(output,snapshot,get_receipt)
-
 def verify_restored(connection, snapshot, validation):
     validate_snapshot(snapshot)
     actual=request(connection,'GET','/api/export')
@@ -285,11 +232,12 @@ def main(argv=None):
     issue.add_argument('--output',type=Path,required=True)
     subs.add_parser('clients')
     revoke=subs.add_parser('revoke-client'); revoke.add_argument('id')
+    subs.add_parser('unused-categories',help='列出没有任何账单使用的分类')
+    subs.add_parser('prune-categories',help='删除没有任何账单使用的分类；先备份')
     backup=subs.add_parser('backup');backup.add_argument('--output',type=Path,required=True)
     check=subs.add_parser('verify-backup');check.add_argument('archive',type=Path)
     restore=subs.add_parser('restore');restore.add_argument('archive',type=Path)
     verify_remote=subs.add_parser('verify-remote');verify_remote.add_argument('archive',type=Path)
-    migrate=subs.add_parser('from-sqlite');migrate.add_argument('--database',type=Path,required=True);migrate.add_argument('--receipts',type=Path,required=True);migrate.add_argument('--output',type=Path,required=True)
     args=parser.parse_args(argv)
     try:
         if args.command=='bootstrap':
@@ -306,11 +254,11 @@ def main(argv=None):
             print(json.dumps({'config':str(args.config),'bootstrap_sql':str(args.sql_output),'next':'在本人项目执行 SQL 后验证连接；不要分发管理配置。'},ensure_ascii=False));return 0
         if args.command=='verify-backup':
             print(json.dumps({'verified':True,'validation':read_bundle(args.archive)[2]},ensure_ascii=False));return 0
-        if args.command=='from-sqlite':
-            print(json.dumps({'output':str(args.output),'validation':sqlite_bundle(args.database,args.receipts,args.output)},ensure_ascii=False));return 0
         connection=load_connection(args.config,allow_environment=False)
         require_admin(connection)
         if args.command=='clients': result=request(connection,'GET','/api/credentials')
+        elif args.command=='unused-categories': result=request(connection,'GET','/api/categories/unused')
+        elif args.command=='prune-categories': result=request(connection,'DELETE','/api/categories/unused')
         elif args.command=='revoke-client': result=request(connection,'DELETE','/api/credentials/'+args.id)
         elif args.command=='issue-client':
             if args.output.exists() or args.output.is_symlink(): raise ClientError('配置已存在，拒绝覆盖。')
@@ -339,7 +287,7 @@ def main(argv=None):
             result=verify_restored(connection,snapshot,validation)
         print(json.dumps(result,ensure_ascii=False))
         return 0
-    except (ClientError,OSError,ValueError,KeyError,sqlite3.Error,zipfile.BadZipFile) as exc:
+    except (ClientError,OSError,ValueError,KeyError,zipfile.BadZipFile) as exc:
         print('错误：'+str(exc),file=sys.stderr)
         return 1
 

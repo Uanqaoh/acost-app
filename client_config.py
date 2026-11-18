@@ -69,7 +69,10 @@ def default_config(client):
     return current / filename
 
 
-def validate_url(value, mode="shared"):
+BACKENDS = {"ledger": "/functions/v1/ledger", "vault": "/functions/v1/vault"}
+
+
+def validate_url(value, mode="shared", backend="ledger"):
     try:
         parts = urllib.parse.urlsplit(value)
         port = parts.port
@@ -77,9 +80,9 @@ def validate_url(value, mode="shared"):
         raise ClientError("服务地址无效。") from None
     if (not isinstance(value, str) or not parts.hostname or parts.username is not None
             or parts.password is not None or parts.query or parts.fragment
-            or parts.path not in ("", "/", "/functions/v1/ledger") or any(ord(c) < 33 for c in value)
+            or backend not in BACKENDS or parts.path not in ("", "/", BACKENDS[backend]) or any(ord(c) < 33 for c in value)
             or (port is not None and not 1 <= port <= 65535)):
-        raise ClientError("服务地址仅允许 HTTPS 根地址或 /functions/v1/ledger，不能含凭据或查询。")
+        raise ClientError("服务地址仅允许 HTTPS 根地址或 %s，不能含凭据或查询。" % BACKENDS.get(backend, BACKENDS["ledger"]))
     if mode not in {"shared", "local"}:
         raise ClientError("连接模式必须为 shared 或 local。")
     if mode == "shared" and parts.scheme != "https":
@@ -201,11 +204,19 @@ def _private_json(path):
         raise ClientError("无法安全读取连接配置，请重新配置。") from None
 
 
-def save_connection(path, url, token, *, mode="shared", use_keychain=True):
+def save_connection(path, url, token, *, mode="shared", use_keychain=True, backend="ledger", ledger_id=None,
+                    master_key_path=None):
     path = Path(path).expanduser()
-    url = validate_url(url, mode)
+    url = validate_url(url, mode, backend)
     validate_token(token, required=True)
     config = {"mode": mode, "url": url, "credential_storage": "file"}
+    if os.environ.get("ACOST_NO_KEYCHAIN") == "1":
+        use_keychain = False      # drills in a stand-in home folder: no Keychain prompt for a temporary key
+    if backend != "ledger":
+        # The encrypted ledger: which ledger this key belongs to, and where its master key file is.
+        config.update(backend=backend, ledger_id=ledger_id)
+        if master_key_path:
+            config["master_key_path"] = str(master_key_path)
     if use_keychain and sys.platform == "darwin":
         account = hashlib.sha256(str(path.resolve()).encode()).hexdigest()
         try:
@@ -244,6 +255,10 @@ def load_connection(path, *, environ=None, allow_environment=True):
         # An overridden URL may never inherit a saved credential for another server.
         config = {"url": environment.get("LEDGER_URL"), "token": environment.get("LEDGER_TOKEN", ""),
                   "mode": environment.get("LEDGER_MODE", "shared"), "credential_storage": "file"}
+        if environment.get("LEDGER_BACKEND") == "vault":
+            # Muse's wrappers: the encrypted ledger, its ID and (optionally) where the master key file is.
+            config.update(backend="vault", ledger_id=environment.get("ACOST_LEDGER_ID"),
+                          master_key_path=environment.get("ACOST_MASTER_KEY"))
     elif allow_environment:
         if "LEDGER_TOKEN" in environment:
             config.update(token=environment["LEDGER_TOKEN"], credential_storage="file")
@@ -252,7 +267,8 @@ def load_connection(path, *, environ=None, allow_environment=True):
     if not config.get("url"):
         raise ClientError("尚未配置共享服务地址；请先运行 configure。不会连接或创建本地账本。")
     mode = config.get("mode", "shared")
-    url = validate_url(config["url"], mode)
+    backend = config.get("backend", "ledger")
+    url = validate_url(config["url"], mode, backend)
     token = config.get("token", "")
     if config.get("credential_storage") == "keychain":
         try:
@@ -260,7 +276,11 @@ def load_connection(path, *, environ=None, allow_environment=True):
         except (OSError, KeyError, AttributeError):
             raise ClientError("无法从钥匙串读取访问凭据，请重新配置。") from None
     validate_token(token, required=mode == "shared")
-    return Connection(url, token, mode)
+    # Opt-in for hosts whose only way out is an egress proxy that swaps in the
+    # real credential (for example a Muse VM). Never for the loopback test mode.
+    use_env_proxy = (allow_environment and mode == "shared"
+                     and environment.get("LEDGER_USE_ENV_PROXY") == "1")
+    return Connection(url, token, mode, use_env_proxy, backend, config.get("ledger_id"), config.get("master_key_path"))
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -273,9 +293,13 @@ class Connection:
     url: str
     token: str
     mode: str = "shared"
+    use_env_proxy: bool = False
+    backend: str = "ledger"
+    ledger_id: str = None
+    master_key_path: str = None
 
     def __post_init__(self):
-        self.url = validate_url(self.url, self.mode)
+        self.url = validate_url(self.url, self.mode, self.backend)
         validate_token(self.token, required=self.mode == "shared")
 
     def request(self, method, path, *, payload=None, query=None, max_bytes=16 * 1024 * 1024):
@@ -292,9 +316,11 @@ class Connection:
             headers["Content-Type"] = "application/json; charset=utf-8"
             data = json.dumps(payload, ensure_ascii=False, allow_nan=False).encode()
         request = urllib.request.Request(target, data=data, headers=headers, method=method)
-        # Redirects must never forward credentials. Ignore ambient proxy settings,
-        # especially for loopback demo traffic; TLS still uses system CA checking.
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+        # Redirects must never forward credentials. Ambient proxy settings are
+        # ignored unless LEDGER_USE_ENV_PROXY=1 opted in for an HTTPS ledger.
+        # TLS still uses system CA checking either way.
+        proxies = None if self.use_env_proxy and self.mode == "shared" else {}
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler(proxies), NoRedirect())
         try:
             with opener.open(request, timeout=20) as response:
                 raw = response.read(max_bytes + 1)

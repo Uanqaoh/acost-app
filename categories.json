@@ -1,0 +1,57 @@
+{
+ "about": "Acost 分类目录。账本只用其中一部分：用 tools/categories.py enable 把需要的加进账本。名字是「父类-子类」，父类决定颜色和中文名。starter 为 true 的是新账本默认启用的一组。",
+ "groups": {
+  "Food": {"zh": "餐饮", "color": "#B5531C"},
+  "Shopping": {"zh": "购物", "color": "#8C4A7A"},
+  "Housing": {"zh": "住房", "color": "#1F6B4F"},
+  "Bills": {"zh": "账单", "color": "#5B6C8F"},
+  "Car": {"zh": "车辆", "color": "#3E5C76"},
+  "Transport": {"zh": "出行", "color": "#4F7F8C"},
+  "Health": {"zh": "医疗", "color": "#9C4A4A"},
+  "Fun": {"zh": "娱乐", "color": "#C08A2E"},
+  "Documents": {"zh": "证件", "color": "#3E5C76"},
+  "Other": {"zh": "其他", "color": "#A08A5A"},
+  "Salary": {"zh": "工资", "color": "#2F7D6D"},
+  "Benefits": {"zh": "补贴", "color": "#7A9CCB"},
+  "Other income": {"zh": "其他收入", "color": "#6E8B5E"}
+ },
+ "categories": [
+  {"name": "Food-Grocery", "zh": "买菜", "use": "超市、菜场买的食材、饮料、零食", "starter": true},
+  {"name": "Food-Eating out", "zh": "外食", "use": "自己在外面吃饭、外卖", "starter": true},
+  {"name": "Food-Dining", "zh": "聚餐", "use": "和朋友、家人一起吃饭", "starter": true},
+  {"name": "Food-Coffee", "zh": "咖啡", "use": "咖啡、奶茶等饮品店"},
+
+  {"name": "Shopping-Daily", "zh": "日用", "use": "纸巾、洗衣液等日用品", "starter": true},
+  {"name": "Shopping-Clothing", "zh": "服饰", "use": "衣服、鞋、包", "starter": true},
+  {"name": "Shopping-Electronics", "zh": "数码", "use": "手机、电脑、耳机和配件", "starter": true},
+  {"name": "Shopping-Appliances", "zh": "家电", "use": "家用电器、厨具、家具"},
+  {"name": "Shopping-Apps", "zh": "应用", "use": "一次性买的 App 或游戏；按月扣的放 Bills-Subscriptions"},
+
+  {"name": "Housing-Rent", "zh": "房租", "use": "每月房租", "starter": true},
+  {"name": "Housing-Utilities", "zh": "水电", "use": "水、电、燃气费（不含车充电）"},
+
+  {"name": "Bills-Phone", "zh": "手机", "use": "手机月费", "starter": true},
+  {"name": "Bills-Subscriptions", "zh": "订阅", "use": "按月或按年扣的订阅（视频、AI、云存储等）", "starter": true},
+  {"name": "Bills-Internet", "zh": "网费", "use": "家里宽带"},
+
+  {"name": "Car-Loan", "zh": "车贷", "use": "车贷还款"},
+  {"name": "Car-Car insurance", "zh": "车险", "use": "车险"},
+  {"name": "Car-Electricity", "zh": "充电", "use": "电动车充电，算日常开销"},
+  {"name": "Car-Gas", "zh": "加油", "use": "加油"},
+  {"name": "Car-Parking", "zh": "停车", "use": "停车费"},
+  {"name": "Car-Ticket", "zh": "罚单", "use": "交通罚单"},
+  {"name": "Car-Maintenance", "zh": "保养", "use": "保养、维修、洗车"},
+
+  {"name": "Transport-Transit", "zh": "公交", "use": "地铁、公交、火车", "starter": true},
+  {"name": "Transport-Rideshare", "zh": "打车", "use": "Uber、Lyft、出租车"},
+
+  {"name": "Health-Medical", "zh": "看病买药", "use": "看病、药店、牙医、眼镜"},
+  {"name": "Fun-Entertainment", "zh": "娱乐", "use": "电影、演出、门票、旅游活动"},
+  {"name": "Documents-Visa", "zh": "签证", "use": "签证、护照、证件办理费"},
+  {"name": "Other", "zh": "其他", "use": "实在放不进别的分类时才用", "starter": true},
+
+  {"name": "Salary", "zh": "工资", "type": "income", "use": "工资收入", "starter": true},
+  {"name": "Benefits", "zh": "补贴", "type": "income", "use": "政府福利、退税、补贴"},
+  {"name": "Other income", "zh": "其他收入", "type": "income", "use": "其他收入", "starter": true}
+ ]
+}

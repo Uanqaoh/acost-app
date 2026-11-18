@@ -71,6 +71,17 @@ def amount_cents(value):
     return int(cents)
 
 
+def balance_cents(value):
+    """A stated account balance in cents; it may be zero or negative (money owed)."""
+    value = str(value).strip()
+    if not re.fullmatch(r"[+-]?\d+(?:\.\d{1,2})?", value):
+        raise LedgerError("余额必须是数字，最多两位小数，例如 1234.56；欠款写负数。")
+    cents = int(Decimal(value) * 100)
+    if abs(cents) > 999999999999:
+        raise LedgerError("余额超出支持范围。")
+    return cents
+
+
 def check_date(value):
     if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         raise LedgerError("日期必须为 YYYY-MM-DD。")
@@ -107,8 +118,8 @@ def toronto_now():
             pass
     # Minimal Linux installs sometimes omit the IANA timezone database. UTC is
     # an explicit, documented fallback rather than guessing EST/EDT offsets.
-    print("提示：系统缺少 America/Toronto 时区数据，默认日期使用 UTC；"
-          "可显式提供 --date，或安装系统 tzdata。", file=sys.stderr)
+    print("提示：系统缺少 America/Toronto 时区数据，默认日期和时间使用 UTC；"
+          "可显式提供 --date 和 --time，或安装系统 tzdata。", file=sys.stderr)
     return dt.datetime.now(dt.timezone.utc)
 
 
@@ -145,6 +156,16 @@ def validate_payload(payload, *, creating=False, refund=False):
     if "idempotency_key" in payload:
         if not isinstance(payload["idempotency_key"], str) or not payload["idempotency_key"].strip():
             raise LedgerError("idempotency_key 必须为非空字符串。")
+    if "items" in payload and payload["items"] is not None:
+        items = payload["items"]
+        def bad(item):
+            return (not isinstance(item, dict) or set(item) != {"name", "amount_cents"}
+                    or not isinstance(item["name"], str) or not 0 < len(item["name"].strip()) <= 200
+                    or isinstance(item["amount_cents"], bool) or not isinstance(item["amount_cents"], int)
+                    or abs(item["amount_cents"]) > 999999999999)
+        if not isinstance(items, list) or len(items) > 200 or any(bad(item) for item in items):
+            raise LedgerError("items 必须是最多 200 项的数组；每项只含 name（商品名）和 amount_cents"
+                              "（整数分，折扣可为负数）。")
     if "duplicate_acknowledgements" in payload:
         acknowledged = payload["duplicate_acknowledgements"]
         if (not isinstance(acknowledged, list)
@@ -157,6 +178,8 @@ def validate_payload(payload, *, creating=False, refund=False):
 def command_payload(args):
     fields = ("amount", "date", "time", "merchant", "note", "category", "account",
               "to_account", "receipt_url", "type")
+    if args.command in ("add", "refund") and args.unknown_time:
+        raise LedgerError("新增和退款不能把时间留空。小票上有时间就用 --time；没有就省略，程序会写入多伦多当前时间。")
     if args.json:
         conflicts = [name for name in fields if getattr(args, name, None) is not None]
         if args.unknown_time:
@@ -169,8 +192,10 @@ def command_payload(args):
         if args.command in ("add", "refund"):
             if args.amount is None:
                 raise LedgerError("请提供 --amount，或使用 --json 输入 amount_cents。")
-            payload["date"] = args.date or toronto_now().strftime("%Y-%m-%d")
-            payload["time"] = args.time
+            if args.date is None or args.time is None:
+                now = toronto_now()
+                payload["date"] = args.date or now.strftime("%Y-%m-%d")
+                payload["time"] = args.time or now.strftime("%H:%M")
         for field in fields:
             value = getattr(args, field, None)
             if value is not None:
@@ -182,7 +207,8 @@ def command_payload(args):
         if args.command == "add":
             payload.setdefault("type", "expense")
             payload.setdefault("account", "Spending")
-            payload.setdefault("category", "餐饮-Grocery")
+            if "category" not in payload and payload["type"] != "transfer":
+                raise LedgerError("请用 --category 指定分类（meta 返回的已有分类）。")
     if args.currency is not None:
         payload["currency"] = args.currency
     if args.key is not None:
@@ -195,9 +221,12 @@ def command_payload(args):
                 and payload["duplicate_acknowledgements"] != acknowledged):
             raise LedgerError("--acknowledge-duplicate 与 JSON 中的 duplicate_acknowledgements 不一致。")
         payload["duplicate_acknowledgements"] = acknowledged
-    if args.command in ("add", "refund"):
-        payload.setdefault("time", None)
-    elif "duplicate_acknowledgements" in payload:
+    if args.command in ("add", "refund") and payload.get("time") is None:
+        now = toronto_now()
+        payload["time"] = now.strftime("%H:%M")
+        if not payload.get("date"):
+            payload["date"] = now.strftime("%Y-%m-%d")
+    if args.command not in ("add", "refund") and "duplicate_acknowledgements" in payload:
         raise LedgerError("duplicate_acknowledgements 仅用于新增或退款。")
     if args.command == "edit" and not payload:
         raise LedgerError("请至少提供一个要修改的字段。")
@@ -220,8 +249,13 @@ def connection():
 
 def api_request(method, path, *, payload=None, query=None):
     try:
-        raw, _ = connection().request(method, "/api/" + path.lstrip("/"),
-                                      payload=payload, query=query, max_bytes=256 * 1024 * 1024)
+        client = connection()
+        if client.backend == "vault":
+            # The encrypted ledger answers the same routes, worked out here (acost_vault, needs cryptography).
+            from acost_vault.backend import VaultBackend
+            client = VaultBackend(client)
+        raw, _ = client.request(method, "/api/" + path.lstrip("/"),
+                                payload=payload, query=query, max_bytes=256 * 1024 * 1024)
         return raw
     except ClientError as error:
         raise LedgerError(str(error), status=error.status, details=error.details) from None
@@ -239,15 +273,51 @@ def require_saved_entry(result):
     return result
 
 
+def category_names():
+    meta = json_response(api_request("GET", "meta"))
+    return {item.get("name") for item in meta.get("categories") or [] if isinstance(item, dict)}
+
+
+def guard_category(payload, allow_new):
+    """The service creates any unseen category name, so stop new names here."""
+    category = payload.get("category")
+    if not isinstance(category, str) or not category.strip() or allow_new:
+        return
+    if category not in category_names():
+        raise LedgerError("分类「" + category + "」不在账本里。先问用户：改用 meta 返回的已有分类，"
+                          "或在用户同意新建后加 --allow-new-category 重试。")
+
+
+def guard_items_total(payload, entry_id=None):
+    """A receipt's line items must add up to the entry amount."""
+    items, amount = payload.get("items"), payload.get("amount_cents")
+    if entry_id is not None and (("items" in payload) != ("amount_cents" in payload)):
+        if "items" in payload and not items:
+            return
+        saved = json_response(api_request("GET", entry_path(entry_id))).get("entry") or {}
+        if "items" not in payload:
+            items = saved.get("items")
+        else:
+            amount = saved.get("amount_cents")
+    if not items or not isinstance(amount, int):
+        return
+    total = sum(item.get("amount_cents", 0) for item in items if isinstance(item, dict))
+    if total != amount:
+        raise LedgerError("items 合计 %d 分，不等于这一笔的金额 %d 分。核对小票（税单独作为一项），"
+                          "金额和 items 要一起改对；看不清就不附 items。" % (total, amount))
+
+
 def configure_client(args):
     if not args.url:
         raise LedgerError("配置共享模式需要 --url https://你的服务地址。")
     if args.token_stdin:
         token = sys.stdin.readline().rstrip("\r\n")
     elif sys.stdin.isatty():
-        token = getpass.getpass("当前 Grok 账号专属访问凭据（输入不显示）：").strip()
+        token = getpass.getpass("粘贴账本钥匙（ql_ 开头，不会显示）：").strip()
     else:
         raise LedgerError("请在交互终端输入凭据，或使用 --token-stdin 安全传入；不要放在命令参数中。")
+    if args.backend == "vault":
+        return configure_vault(args, token)
     try:
         client = Connection(args.url, token)
         raw, _ = client.request("GET", "/api/meta")
@@ -260,6 +330,26 @@ def configure_client(args):
         return {"ok": True, "mode": "shared", "role": role, "credential_storage": storage}
     except ClientError as error:
         raise LedgerError(str(error)) from None
+
+
+def configure_vault(args, token):
+    """Save an encrypted-ledger key (for example the Mac's backup key). The master key is not involved."""
+    if not args.ledger_id:
+        raise LedgerError("加密版需要 --ledger-id（SQL Editor 里 create_ledger 返回的编号）。")
+    from acost_vault.sync import Transport, VaultError
+    try:
+        client = Connection(args.url, token, backend="vault", ledger_id=args.ledger_id)
+        status, state = Transport(client.url, token).call("GET", "/api/state")
+    except (ClientError, VaultError) as error:
+        raise LedgerError(str(error)) from None
+    if status != 200:
+        raise LedgerError("HTTP %d：%s；配置未保存。" % (status, state.get("message", "无法读取账本")))
+    if state.get("ledger_id") != args.ledger_id.lower():
+        raise LedgerError("这把钥匙属于另一本账，和 --ledger-id 不一致；配置未保存。")
+    path = _CONFIG_PATH or os.environ.get("LEDGER_CONFIG") or default_config("grok")
+    storage = save_connection(path, client.url, token, backend="vault", ledger_id=state["ledger_id"])
+    return {"ok": True, "mode": "shared", "backend": "vault", "role": state["credential"]["role"],
+            "ledger": state["name"], "credential_storage": storage}
 
 
 def json_response(raw):
@@ -307,8 +397,33 @@ def execute(args):
     command = args.command
     if command == "configure":
         return configure_client(args)
+    if command == "vault":
+        try:
+            from acost_vault import admin
+            from acost_vault.sync import VaultError
+        except ImportError as error:
+            raise LedgerError("加密版需要 cryptography 库；请用 ~/acost-venv/bin/python 运行（%s）。" % error) from None
+        try:
+            if args.action == "join":
+                if not args.invite:
+                    raise LedgerError("join 需要 --invite 邀请码。")
+                return admin.join(args.invite, url=args.url or admin.SERVICE_URL,
+                                  directory=Path(_CONFIG_PATH).expanduser().parent if _CONFIG_PATH else None)
+            return admin.run(connection(), args.action, args, sys.stdin)
+        except VaultError as error:
+            raise LedgerError(str(error), status=error.status) from None
+        except ClientError as error:
+            raise LedgerError(str(error), status=error.status, details=error.details) from None
     if command == "get":
         return json_response(api_request("GET", entry_path(args.id), query={"include_deleted": "true"} if args.include_deleted else None))
+    if command == "add-category":
+        payload = {"name": args.name}
+        if args.color:
+            payload["color"] = args.color
+        return json_response(api_request("POST", "categories", payload=payload))
+    if command == "set-balance":
+        return json_response(api_request("POST", "accounts/balance", payload={
+            "account": args.account, "balance_cents": balance_cents(args.amount)}))
     if command in ("meta", "health"):
         return json_response(api_request("GET", command))
     if command in ("list", "summary"):
@@ -332,6 +447,11 @@ def execute(args):
             payload["expected_version"] = positive_version(supplied)
         elif not payload.get("idempotency_key"):
             raise LedgerError("新增或退款必须提供稳定 --key / idempotency_key，重试沿用同一键。")
+        if command != "refund":
+            guard_items_total(payload, args.id if command == "edit" else None)
+            guard_category(payload, args.allow_new_category)
+            if args.allow_new_category:
+                payload["allow_new_category"] = True
         path = "entries" if command == "add" else entry_path(args.id)
         if command == "refund":
             path += "/refunds"
@@ -388,8 +508,8 @@ def add_payload_options(parser, *, refund=False, editing=False):
     parser.add_argument("--currency", choices=("CAD",), help="目前只支持 CAD")
     parser.add_argument("--date", help="YYYY-MM-DD；添加/退款默认多伦多当天")
     time_options = parser.add_mutually_exclusive_group()
-    time_options.add_argument("--time", help="实际时间 HH:MM；添加/退款省略时标记为时间未记录")
-    time_options.add_argument("--unknown-time", action="store_true", help="明确将时间标记为未记录；编辑时可清除占位时间")
+    time_options.add_argument("--time", help="实际时间 HH:MM；小票上的时间优先，添加/退款省略时使用多伦多当前时间")
+    time_options.add_argument("--unknown-time", action="store_true", help="仅编辑时可用，会清空时间；新增和退款不要使用")
     parser.add_argument("--note", help="备注")
     parser.add_argument("--key", help="稳定去重键；重试同笔录入必须使用相同键")
     if not editing:
@@ -398,7 +518,9 @@ def add_payload_options(parser, *, refund=False, editing=False):
     if not refund:
         parser.add_argument("--type", choices=ENTRY_TYPES, help="添加默认为 expense")
         parser.add_argument("--merchant", help="商家")
-        parser.add_argument("--category", help="添加默认为 餐饮-Grocery")
+        parser.add_argument("--category", help="分类；必须是 meta 里已有的")
+        parser.add_argument("--allow-new-category", action="store_true",
+                            help="仅在用户明确同意新建这个分类后使用；否则不在账本里的分类会被拒绝")
         parser.add_argument("--account", help="添加默认为 Spending")
         parser.add_argument("--to-account", help="转账的收款账户")
         parser.add_argument("--receipt-url", help="上传接口返回的小票 URL")
@@ -415,11 +537,19 @@ def build_parser():
     config = commands.add_parser("configure", help="验证并保存共享 HTTPS 地址与专属凭据")
     config.add_argument("--url", required=True)
     config.add_argument("--token-stdin", action="store_true", help="从标准输入读取一行凭据，避免命令历史")
+    config.add_argument("--backend", choices=("ledger", "vault"), default="ledger", help="vault：加密版账本")
+    config.add_argument("--ledger-id", help="加密版：这把钥匙所属账本的编号")
     get = commands.add_parser("get", help="按真实 ID 读取原单及当前版本，支持跨月查询")
     get.add_argument("id")
     get.add_argument("--include-deleted", action="store_true", help="恢复前读取已删除原单")
     commands.add_parser("health", help="检查服务状态")
     commands.add_parser("meta", help="读取账户、分类和配置")
+    category = commands.add_parser("add-category", help="新建一个分类；只在用户同意后用，平时用 tools/categories.py enable")
+    category.add_argument("name", help="分类名，如 Bills-Internet")
+    category.add_argument("--color", help="#RRGGBB；默认灰色")
+    balance = commands.add_parser("set-balance", help="登记一个账户现在的真实余额；账本据此算出期初余额，以后的余额才是真的")
+    balance.add_argument("account", help="账户名，如 Spending")
+    balance.add_argument("--amount", required=True, help="现在的真实余额，如 1234.56；欠款写负数，如 --amount=-80")
     listing = commands.add_parser("list", help="查询账单")
     listing.add_argument("--month", help="YYYY-MM")
     listing.add_argument("--q", "--query", dest="q", help="搜索文字")
@@ -443,6 +573,17 @@ def build_parser():
         sub = commands.add_parser(command, help=help_text)
         sub.add_argument("id", help="账单 ID")
         sub.add_argument("--expected-version", type=int, required=True, help="先 get 原单读取 version")
+    vault = commands.add_parser("vault", help="加密版账本：开通、恢复码、自检、搬账、导出")
+    vault.add_argument("action", choices=("join", "init", "recovery-code", "restore", "check", "import", "export"),
+                       help="join 用邀请码加入；init 开通；recovery-code 显示恢复码（只给用户看）；restore 从标准输入读恢复码；"
+                            "check 自检；import 搬入旧备份；export 导出成旧备份格式")
+    vault.add_argument("--invite", help="join：Hao 发的一次性邀请码")
+    vault.add_argument("--url", help="join：加密账本地址；默认 Acost 的服务")
+    vault.add_argument("--empty", action="store_true", help="init：不建起步账户和分类（马上要 import 旧账时用）")
+    vault.add_argument("--book", help="init：账本名")
+    vault.add_argument("--file", help="import：cloud_admin.py backup 的 ZIP 或快照 JSON")
+    vault.add_argument("--compare-with", type=Path, help="import：旧账本配置，逐月和旧账本的汇总比")
+    vault.add_argument("--output", help="export：输出 ZIP")
     upload = commands.add_parser("upload", help="上传最多 8 MB 的小票文件")
     upload.add_argument("file", help="本地小票路径")
     for command, help_text in (("export", "导出完整 JSON"), ("backup", "保存共享完整备份 ZIP（管理员权限）")):
