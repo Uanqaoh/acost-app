@@ -2,7 +2,7 @@
  "files": {
   "ledgerctl.py": "ea3b3e34f9f419c422e006e66ffa96e3aaec1d5e9a69a5f70a4757332e8f241a",
   "client_config.py": "0ef0df2b2a118dba8a3c84d952b3b724a3aa50e85081713af9f99e8683c6e6dc",
-  "QUICK_CARD.md": "701f345bf33c24e6d809e8b440d01263f7bcda7a2a471918c4a96f34d4dc4ad6",
+  "QUICK_CARD.md": "c26b4007aaabb8313515826326a122df7edafc67640d8da3edd27c1f4f556754",
   "AGENT_USAGE.md": "a40fb99bbcc598059e6743c6cd8add701e0a4b1158473668821de30272ec1308",
   "design/template.html": "dc8a722d17ce21422db5d08a0c41ec3dec599962cbe6d6e832dbe058bf0c9725",
   "tools/recurring.py": "16295214fd7d054056cc81a19a0e39d97cca9d34c18bf9d79cf660580edb3bbd",
