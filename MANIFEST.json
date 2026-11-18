@@ -7,13 +7,13 @@
   "design/template.html": "dc8a722d17ce21422db5d08a0c41ec3dec599962cbe6d6e832dbe058bf0c9725",
   "tools/recurring.py": "16295214fd7d054056cc81a19a0e39d97cca9d34c18bf9d79cf660580edb3bbd",
   "tools/checkup.py": "4a5ee62d89b2f39bfed8ef4b38ce9b5f8fcb9da6867bff614916d471cc3859a3",
-  "tools/record.py": "6932d2b6ce57debe6e569ac3175b636355ceaac0fabfbacd69fa5eae68ef8a87",
-  "tools/dashboard_data.py": "cbe6462cbbc2d41db20609757221b8053814a3fe4aea3c7501781c4462eff235",
+  "tools/record.py": "be9ca298c3405265515d407011f06945647f796cf895a1d0f2b6db4c9d23e560",
+  "tools/dashboard_data.py": "435f1192b080ff598fade9f41bdaeae203f65853ca8f2c43b3e1f50c4dc50a36",
   "tools/daily.py": "812668a773c967f816cf4caa65a3c511f51d70d4fcb625ece85b0f9cc7859145",
   "tools/manifest.py": "0f67fe8e8d77728fcd44b3ce34063ed0dd4863b5dbf44b3b08e159d9a076c88d",
   "tools/categories.py": "b2c053d8385d07d05e71ccf7de23eb503417b0bdfe652e28fc34c08bf63c5d89",
   "categories.json": "5196714da72c1545192577a0d372dfecdebd93eaf6e57fae9fc530ed17e6d005",
-  "tools/fix.py": "1c4a5905118293cef3452b7c81659c0cb8f50ee2cde422613f5b11012d338173",
+  "tools/fix.py": "227a9b6d5f194ebe36f294c910c264aae0fd6ca6c72388e680c65f8a4da58654",
   "tools/budget.py": "a419fe8c6389eeb61a54a2227845aed7998975a65e996499e5e851754bec85df",
   "tools/yearly.py": "7d55c650d6c93273749918a7890055dc3b190719318ee2f04d61407b2ace1cbb",
   "tools/costco_watch.py": "118906e10f76173cbc53dacfded8c6a264465f00e6864c637f76d510b565c01f",
@@ -27,7 +27,7 @@
   "cloud_admin.py": "00f964f18df751ca45703ceccf9db65907ff566cb95f41bdd901a4fbb74e3aa1",
   "tools/fetch.py": "d4f95a4804a3fcb185120651909088d9b2a5000ce02852c1fc2a1a0d36075f87",
   "tools/install_muse.py": "ebe9da25ca9d0ede33fa44f121e144683d550893594fe63cec4c77a9877bfacb",
-  "acost_vault/report.py": "ce97fbfe4de602c1d41be436451d56c4a476952db3af4bbb2d5518a193260791",
+  "acost_vault/report.py": "b1051fa89b5e563ae85d606b7ff254f3bf6059caf6d68696791e991687532b66",
   "tools/report.py": "bc008cb268a6cd39fe9f291e411372993e56c9d470fbbb7f5ae073bd3de6ff43"
  }
 }

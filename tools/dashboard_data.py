@@ -155,6 +155,35 @@ def run(ledger, months=None, config=None, out=None, recurring_file=None, now=Non
             "config_found": config_path.exists()}
 
 
+REFRESHED = "看板数据已经更新好，让「Acost 看板」重新读一次。"
+
+
+def refresh(ledger, out=None):
+    """After a change to the ledger: rebuild the data file so the caller does not have to remember to.
+    None when there is no dashboard yet (its data folder was never made); never raises."""
+    out_path = Path(out or os.environ.get("ACOST_DASHBOARD_DATA") or "~/acost/data/template_data.json").expanduser()
+    if not out_path.parent.is_dir():
+        return None
+    try:
+        run(ledger, out=out_path)
+        return {"ok": True, "output": str(out_path)}
+    except (LedgerError, KeyError, OSError, ValueError) as error:
+        return {"ok": False, "error": str(error)}
+
+
+def after_change(result, ledger):
+    """Rebuild the dashboard data after a saved change and say so in result["next"] instead of "然后刷新看板"."""
+    if not (result.get("ok") and result.get("status", "saved") == "saved"):
+        return result
+    board = refresh(ledger)
+    if board is None:
+        return result
+    result["dashboard"] = board
+    said = REFRESHED if board["ok"] else ("看板数据没更新（%s），旧数据还在；运行 dashboard_data.py 再试一次。" % board["error"])
+    result["next"] = result.get("next", "").replace("，然后刷新看板。", "。" + said).replace("然后刷新看板。", said)
+    return result
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="从账本生成看板数据文件（只读）。")
     parser.add_argument("months", nargs="*", help="YYYY-MM；默认最近 12 个月（第一笔账之前的空月份不要）")
