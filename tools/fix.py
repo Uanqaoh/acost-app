@@ -18,6 +18,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import dashboard_data  # noqa: E402
 from record import Journal, money  # noqa: E402
 from recurring import Ledger, LedgerError, toronto_now  # noqa: E402
 
@@ -179,6 +180,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         result = execute(args)
+        if result.get("applied") and result.get("count"):    # something changed: rebuild the dashboard's data
+            dashboard_data.after_change(result, Ledger(args.ledger))
     except LedgerError as error:
         result = {"ok": False, "next": "没改完：%s" % error}
     print(json.dumps(result, ensure_ascii=False))

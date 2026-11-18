@@ -17,6 +17,8 @@ receipt.json:
     ]
   }
   Items unreadable, or a spoken amount: leave out "items" and give one "category".
+  No shop named ("午饭 12.5"): "merchant" may be left out; the note (the user's words) or the category stands in.
+  The photo is never part of how a purchase is recognised: one screenshot can hold two purchases that look alike.
   Costco warehouse receipts: add "code" (the item number printed before the name) to each line, the same
   code on its instant-savings line, and "qty" when one line is several of the same item. The codes go to
   costco_watch.py's list for price adjustments, never to the ledger.
@@ -29,7 +31,8 @@ Money moved between the user's own accounts, and money that came back:
   ("original_date" narrows it down); when several fit it lists them, and "original_id" picks one.
 
 The script uploads the photo, makes the key, splits by category, shares the tax,
-records every part and checks what came back. It prints one JSON object:
+records every part and checks what came back. Once something is saved it also rebuilds the dashboard's data
+file (when the dashboard is set up), so only the page itself has to be reloaded. It prints one JSON object:
   status   saved | already_saved | ask | partial | refused
   next     the one thing to do next, in words
 What it submitted is kept in ~/acost/journal (or ACOST_JOURNAL_DIR), so running the
@@ -46,13 +49,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from recurring import Ledger, LedgerError, check_date, toronto_now  # noqa: E402
 from ledgerctl import check_time  # noqa: E402
 import costco_watch  # noqa: E402
+import dashboard_data  # noqa: E402
 
 FIELDS = {"type", "merchant", "date", "time", "account", "total_cents", "photo", "transaction_no",
           "tax_cents", "rounding_cents", "items", "category", "note", "again",
           "to_account", "original_id", "original_date"}
 ONLY = {"transfer": {"type", "date", "time", "account", "to_account", "total_cents", "note", "again"},
         "refund": {"type", "date", "time", "merchant", "total_cents", "original_id", "original_date", "note", "again"}}
-NEEDS = {"transfer": ("account", "to_account"), "refund": ()}
+NEEDS = {"transfer": ("account", "to_account"), "refund": (), "expense": ("account",), "income": ("account",)}
 TAX_NAME, ROUNDING_NAME = "HST", "现金取整"
 
 
@@ -97,7 +101,16 @@ def check(receipt):
         raise Refused("type 只能是 expense、income、transfer 或 refund。")
     if kind in ONLY and not set(receipt) <= ONLY[kind]:
         raise Refused("%s只写这些字段：%s" % ("转账" if kind == "transfer" else "退款", ", ".join(sorted(ONLY[kind]))))
-    for field in NEEDS.get(kind, ("merchant", "account")):
+    if kind in ("expense", "income") and not (isinstance(receipt.get("merchant"), str) and receipt["merchant"].strip()):
+        # "午饭 12.5": no shop named. The user's words (note), else the category, stand in for it.
+        items = receipt.get("items") if isinstance(receipt.get("items"), list) else []
+        first = items[0].get("category") if items and isinstance(items[0], dict) else None
+        stand_in = next((text.strip() for text in (receipt.get("note"), receipt.get("category"), first)
+                         if isinstance(text, str) and text.strip()), None)
+        if not stand_in:
+            raise Refused("没有 merchant 时要写 category（或 note，用户的原话）。")
+        receipt["merchant"] = stand_in
+    for field in NEEDS[kind]:
         if not isinstance(receipt.get(field), str) or not receipt[field].strip():
             raise Refused("缺少 " + field + "。" + ("问用户用哪个账户。" if field.endswith("account") else ""))
     try:
@@ -200,15 +213,14 @@ def split(receipt):
     return parts
 
 
-def receipt_key(receipt, photo_hash):
-    """Stable for the same purchase however it is photographed or re-read."""
+def receipt_key(receipt):
+    """Stable for the same purchase however it is photographed or re-read: made from what was bought, never
+    from the picture. One screenshot can hold two purchases that look alike; the picture cannot tell them apart."""
     base = [receipt["date"], str(receipt["total_cents"]), receipt["account"]]
     if receipt.get("transaction_no"):
         base.append("tx" + "".join(str(receipt["transaction_no"]).split()))
     elif receipt.get("time"):
         base.append(receipt["time"])
-    elif photo_hash:
-        base.append("img" + photo_hash[:32])
     else:
         base.append("m" + "".join(receipt["merchant"].lower().split()))
     if receipt.get("again"):
@@ -265,7 +277,7 @@ def again_key(receipt):
 def same_or_new(receipt, entries, recorded_at):
     """Nothing but date, amount, account and name identifies this one, and it is already in the ledger."""
     return {"ok": False, "status": "ask", "entries": entries,
-            "next": "账本里已经有一样的一笔（%s 记的，ID %s）。描述里没有时间、交易号或照片，分不清是同一笔还是又发生了一次。"
+            "next": "账本里已经有一样的一笔（%s 记的，ID %s）。描述里没有时间或交易号，分不清是同一笔还是又发生了一次。"
                     "问用户：是同一笔就不用再记；确实是另一笔，在描述里加 \"again\": %d 再运行。"
                     % (recorded_at or "之前", "、".join(str(entry["id"]) for entry in entries), (receipt.get("again") or 1) + 1)}
 
@@ -406,7 +418,7 @@ def record(ledger, receipt, not_duplicate=()):
         if not photo.is_file() or photo.stat().st_size > 8 * 1024 * 1024:
             raise Refused("小票照片不存在或超过 8 MB：" + str(photo))
         photo_hash = hashlib.sha256(photo.read_bytes()).hexdigest()
-    key = receipt_key(receipt, photo_hash)
+    key = receipt_key(receipt)
     journal = Journal(key)
     done = journal.data.get("saved") or {}
     if not done and not journal.data.get("unsure"):  # nothing is in the ledger yet, so the newest description wins
@@ -448,7 +460,7 @@ def record(ledger, receipt, not_duplicate=()):
         journal.save()
     payloads, saved = journal.data["payloads"], journal.data["saved"]
     was_complete = len(saved) == len(payloads)
-    if was_complete and not (receipt.get("transaction_no") or receipt.get("time") or photo_hash):
+    if was_complete and not (receipt.get("transaction_no") or receipt.get("time")):
         return same_or_new(receipt, [{"category": payload["category"], "amount_cents": payload["amount_cents"],
                                       "id": saved[payload["category"]]} for payload in payloads], journal.data.get("time"))
     for payload in payloads:
@@ -513,7 +525,8 @@ def main(argv=None):
             receipt = json.loads(text)
         except (OSError, ValueError) as error:
             raise Refused("读不了小票描述：" + str(error)) from None
-        result = record(Ledger(args.ledger), receipt, args.not_duplicate)
+        ledger = Ledger(args.ledger)
+        result = dashboard_data.after_change(record(ledger, receipt, args.not_duplicate), ledger)
     except Refused as refusal:
         saved = refusal.args[1] if len(refusal.args) > 1 else {}
         if isinstance(refusal, Unsure):
