@@ -9,9 +9,11 @@ something wrong: the server refuses, we pull and run the rules again.
 import contextlib
 import fcntl
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import tempfile
 import time
@@ -103,11 +105,18 @@ class Transport:
                 raise VaultError("服务返回重定向，已拒绝转发凭据。", 502) from None
             try:
                 body = json.loads(error.read(65536).decode())
-            except (ValueError, UnicodeError, OSError):
+            except (ValueError, UnicodeError, OSError, http.client.HTTPException):
                 body = {}
             return error.code, body if isinstance(body, dict) else {}
-        except (urllib.error.URLError, OSError, TimeoutError, ValueError):
-            raise VaultError("无法连接共享账本。请检查网络与服务状态；不会切换到本地账本。", 503) from None
+        except (urllib.error.URLError, OSError, TimeoutError, ValueError, http.client.HTTPException) as error:
+            raise VaultError("无法连接共享账本（%s）。请检查网络与服务状态；不会切换到本地账本。" % _reason(error), 503) from None
+
+
+def _reason(error):
+    """A short, safe description of a network failure: no addresses or credentials, so it can be shown."""
+    cause = getattr(error, "reason", None) or error
+    text = re.sub(r"\S+://\S+", "<地址>", str(cause))[:120].strip()
+    return type(cause).__name__ + (": " + text if text else "")
 
 
 class Vault:

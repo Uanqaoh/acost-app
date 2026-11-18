@@ -19,6 +19,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 
 HOME = Path.home()
 ACOST = HOME / "acost"
@@ -84,10 +85,20 @@ def main(argv=None):
             if not args.invite:
                 raise Stop("还没加入：需要 Hao 发的邀请码，加 --invite 再运行。")
             # Same proxy switch as the wrappers: a Muse VM only reaches the internet through its egress proxy.
-            ok, result = run(PYTHON, ACOST / "ledgerctl.py", "--config", CONFIG / "ai.json", "vault", "join", "--invite", args.invite,
-                             *(["--url", args.url] if args.url else []), env={**os.environ, "LEDGER_USE_ENV_PROXY": "1"})
+            # Its connection sometimes drops for a moment, so a failure to connect is tried again (up to 3 times).
+            # If the server did use the code but its answer was lost, the next try says "已经用过" and we say so.
+            for attempt in range(3):
+                if attempt:
+                    time.sleep(3 * attempt)
+                ok, result = run(PYTHON, ACOST / "ledgerctl.py", "--config", CONFIG / "ai.json", "vault", "join", "--invite", args.invite,
+                                 *(["--url", args.url] if args.url else []), env={**os.environ, "LEDGER_USE_ENV_PROXY": "1"})
+                if ok or "无法连接" not in str(result.get("error")):
+                    break
             if not ok:
-                raise Stop("邀请码没用上：" + str(result.get("error")))
+                error = str(result.get("error"))
+                if "已经用过" in error and attempt:
+                    raise Stop("邀请码已被这次安装用掉，但回复在路上丢了（网络断了一下）：请 Hao 在服务端删掉这个新账本并重发邀请码。原样告诉 Hao：" + error)
+                raise Stop("邀请码没用上（试了 %d 次）：%s" % (attempt + 1, error))
             done.append("用邀请码加入，钥匙存在 ~/.config/acost/")
 
         ok, check = run(ai, "vault", "check")        # the ledger itself says whether it is opened
