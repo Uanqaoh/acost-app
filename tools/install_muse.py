@@ -85,11 +85,12 @@ def main(argv=None):
             if not args.invite:
                 raise Stop("还没加入：需要 Hao 发的邀请码，加 --invite 再运行。")
             # Same proxy switch as the wrappers: a Muse VM only reaches the internet through its egress proxy.
-            # Its connection sometimes drops for a moment, so a failure to connect is tried again (up to 3 times).
-            # If the server did use the code but its answer was lost, the next try says "已经用过" and we say so.
-            for attempt in range(3):
+            # Its connection sometimes drops for a moment, so a failure to connect is tried again (up to 5 times).
+            # If the server did use the code but its answer was lost, the server lets the same code in again
+            # (new keys for the same, still unopened ledger). Only an older server says "已经用过"; we say so.
+            for attempt in range(5):
                 if attempt:
-                    time.sleep(3 * attempt)
+                    time.sleep(min(3 * attempt, 10))
                 ok, result = run(PYTHON, ACOST / "ledgerctl.py", "--config", CONFIG / "ai.json", "vault", "join", "--invite", args.invite,
                                  *(["--url", args.url] if args.url else []), env={**os.environ, "LEDGER_USE_ENV_PROXY": "1"})
                 if ok or "无法连接" not in str(result.get("error")):

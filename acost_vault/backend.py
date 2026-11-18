@@ -13,6 +13,7 @@ from .sync import FRESH_SECONDS, HeadMoved, Transport, Vault, VaultError, read_m
 READS = ("GET", "HEAD")
 STATE_FREE = (403, 405, 428, 501)   # refusals that do not depend on what is in the ledger
 ATTEMPTS = 5
+LOST_WRITES = 2     # a write whose answer was lost is checked and, if it did not go in, sent again this often
 
 
 def default_master_key_path():
@@ -44,6 +45,12 @@ class VaultBackend:
     def answer(self, method, path, payload=None, query=None):
         """(status, body) exactly as the old server would answer."""
         method = method.upper()
+        # A new entry or refund carries an idempotency key, so after a lost answer the ledger itself can tell
+        # whether it went in: pull, run the rules again, and either they return the entry that is already
+        # there or the write goes again on the new head. Other writes are not sent twice (an edit that went
+        # in would come back as a version conflict); they say plainly that it is not known.
+        replayable = method == "POST" and isinstance(payload, dict) and bool(payload.get("idempotency_key"))
+        lost = 0
         try:
             with self.vault() as vault:
                 vault.ensure()
@@ -63,6 +70,14 @@ class VaultBackend:
                     try:
                         vault.append(docs, ledger.head)
                     except HeadMoved:
+                        vault.ensure(force=True)
+                        continue
+                    except VaultError as error:
+                        if error.status != 503 or len(docs) > 500:
+                            raise
+                        if not replayable or lost >= LOST_WRITES:
+                            raise VaultError(str(error) + "这次写入可能已经进了账本：先查一下再决定要不要重做。", 503) from None
+                        lost += 1
                         vault.ensure(force=True)
                         continue
                     try:
