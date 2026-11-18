@@ -96,3 +96,22 @@ python3 ~/acost/tools/fetch.py
 ### 换了一台云电脑
 
 账还在服务器上，钥匙要重新来：请用户向 Hao 要一个新邀请码会开一本**新的空账**，所以不要这样做。正确做法是让 Hao 给原来的账本补发钥匙，再请用户提供恢复码，运行 `~/acost/bin/ledger-ai vault restore`（从标准输入读恢复码）。
+
+### 遇到问题：报告给 Hao
+
+用户说「有问题」「报告给 Hao」「帮我报个 bug」之类，或者上面哪一步停住了、用户想让 Hao 看看：写一个 `problem.json`，然后运行：
+
+```json
+{"step": "install", "summary": "安装停在加入这一步，重跑三次都一样", "error": "<出错时的输出，原样>"}
+```
+
+```sh
+python3 ~/acost/tools/report.py problem.json
+```
+
+还没装好、没有钥匙的时候（比如加入那一步就失败了），加上用户的邀请码：`--invite ACOST-xxxx-xxxx-xxxx-xxxx-xxxx`。
+
+- `step`：install、record、dashboard、daily、update、other 之一。`summary` 一句话说出了什么事。**不写金额、商家、账户名、商品和用户的个人信息。** `error` 放原文，程序会自己去掉金额、钥匙、邀请码和恢复码。
+- 程序先自检（Python 和程序版本、文件齐不齐、服务器连不连得上、`vault check`），再发给 Hao。发出去的只有这些和你写的三项，没有任何一笔账；Hao 也读不了账本。
+- 成功时告诉用户「已经发给 Hao 了（第 N 号）」。没发出去，把输出原样告诉用户，请他直接找 Hao。
+- 想先看会发什么：加 `--dry-run`。

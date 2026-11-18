@@ -112,6 +112,24 @@ python3 ~/acost/tools/daily.py
 
 把输出里 `report` 的每一行原样告诉用户。`refresh` 为 true 就让看板重新读数据。
 
+## 用户说有问题、要报告给 Hao
+
+用户说「有问题」「报告给 Hao」「帮我报个 bug」之类：不用一步步问用户，自己写 `problem.json`，跑一条命令。
+
+```json
+{"step": "record", "summary": "记小票时报错，重跑一次也一样", "error": "<出错时的输出，原样>"}
+```
+
+```sh
+python3 ~/acost/tools/report.py problem.json
+```
+
+- `step`：install（安装）、record（记账）、dashboard（看板）、daily（早上的例行任务）、update（更新）、other。
+- `summary` 一句话说出了什么事。**不写金额、商家、账户名、商品，也不写用户的名字或其他个人信息。** `error` 放出错时的输出原文，程序会自己去掉金额和钥匙。
+- 程序会先自检（版本、文件、连得上连不上），再把报告发给 Hao；Hao 看不到账本内容。
+- 成功后告诉用户「已经发给 Hao 了（第 N 号）」，不用把报告内容念给用户。没发出去就把输出原样告诉用户，请他直接找 Hao。
+- 用户想先看要发什么：加 `--dry-run`，只显示、不发送。
+
 ## 不能做
 
 - 连不上就如实说，不另建账本，不换地址。record.py 说「不确定有没有记上」时，原样再运行一次，不会重复记。
