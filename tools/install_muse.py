@@ -102,16 +102,20 @@ def main(argv=None):
             done.append("用邀请码加入，钥匙存在 ~/.config/acost/")
 
         ok, check = run(ai, "vault", "check")        # the ledger itself says whether it is opened
-        if not ok:
+        unfinished = ok and not check.get("accounts") and not check.get("categories")   # opened, starter set lost
+        if not ok or unfinished:
             error = str(check.get("error"))
-            if "还没有开通" not in error:
+            if not unfinished and "还没有开通" not in error:
                 if "master key" in error:
                     raise Stop("这本账已经开通过，但这台机器上没有 master key（多半是换了机器）：请用户把恢复码给你，"
                                "运行 ~/acost/bin/ledger-ai vault restore，从标准输入读恢复码。")
                 raise Stop("连不上账本或自检没通过：" + error)
             ok, result = run(*([ai, "vault", "init"] + (["--book", args.book] if args.book else [])))
             if not ok:
-                raise Stop("开通没成功：" + str(result.get("error")))
+                error = str(result.get("error"))
+                if "无法连接" in error:
+                    raise Stop("开通时网络断了一下：原样再运行一次这条安装命令就行，它会接着做完（master key 已留在本机，不要删）。" + error)
+                raise Stop("开通没成功：" + error)
             done.append("开通账本，生成 master key")
 
         recurring = ACOST / "recurring.json"

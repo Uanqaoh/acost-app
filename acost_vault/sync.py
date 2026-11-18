@@ -85,6 +85,9 @@ class Transport:
         self.url, self.token, self.use_env_proxy, self.timeout = url.rstrip("/"), token, use_env_proxy, timeout
         self.calls = 0
 
+    READ_TRIES = 3
+    sleep = staticmethod(time.sleep)
+
     def call(self, method, path, body=None, query=None):
         target = self.url + path + ("?" + urllib.parse.urlencode(query) if query else "")
         headers = {"Accept": "application/json"}
@@ -95,21 +98,28 @@ class Transport:
             headers["Content-Type"] = "application/json; charset=utf-8"
             data = json.dumps(body, ensure_ascii=False, allow_nan=False).encode()
         opener = urllib.request.build_opener(urllib.request.ProxyHandler(None if self.use_env_proxy else {}), _NoRedirect())
-        self.calls += 1
-        try:
-            with opener.open(urllib.request.Request(target, data=data, headers=headers, method=method),
-                             timeout=self.timeout) as response:
-                return response.status, json.loads(response.read(256 * 1024 * 1024) or b"{}")
-        except urllib.error.HTTPError as error:
-            if 300 <= error.code < 400:
-                raise VaultError("服务返回重定向，已拒绝转发凭据。", 502) from None
+        # Some hosts (a Muse VM behind its egress proxy) drop a connection now and then. A read changes nothing,
+        # so it is tried again; a write is not, because its answer may have been lost after the server took it.
+        tries = self.READ_TRIES if method == "GET" else 1
+        for attempt in range(tries):
+            if attempt:
+                self.sleep(attempt)
+            self.calls += 1
             try:
-                body = json.loads(error.read(65536).decode())
-            except (ValueError, UnicodeError, OSError, http.client.HTTPException):
-                body = {}
-            return error.code, body if isinstance(body, dict) else {}
-        except (urllib.error.URLError, OSError, TimeoutError, ValueError, http.client.HTTPException) as error:
-            raise VaultError("无法连接共享账本（%s）。请检查网络与服务状态；不会切换到本地账本。" % _reason(error), 503) from None
+                with opener.open(urllib.request.Request(target, data=data, headers=headers, method=method),
+                                 timeout=self.timeout) as response:
+                    return response.status, json.loads(response.read(256 * 1024 * 1024) or b"{}")
+            except urllib.error.HTTPError as error:
+                if 300 <= error.code < 400:
+                    raise VaultError("服务返回重定向，已拒绝转发凭据。", 502) from None
+                try:
+                    body = json.loads(error.read(65536).decode())
+                except (ValueError, UnicodeError, OSError, http.client.HTTPException):
+                    body = {}
+                return error.code, body if isinstance(body, dict) else {}
+            except (urllib.error.URLError, OSError, TimeoutError, ValueError, http.client.HTTPException) as error:
+                failure = error
+        raise VaultError("无法连接共享账本（%s）。请检查网络与服务状态；不会切换到本地账本。" % _reason(failure), 503)
 
 
 def _reason(error):

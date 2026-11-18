@@ -44,24 +44,46 @@ def starter_categories(path=None):
 
 
 def init(connection, *, empty=False, book="默认账本"):
-    """First data key for a new ledger, a new master key file, and (unless empty) the starter accounts and categories."""
+    """First data key for a new ledger, a new master key file, and (unless empty) the starter accounts and categories.
+
+    Safe to run again after a lost answer: the master key file is written before the server is asked and kept
+    unless the server clearly refused, so a rerun finishes the job with the same key instead of losing it."""
     path = master_path(connection)
-    if path.exists() or path.is_symlink():
-        raise VaultError("master key 文件已经存在（%s）；这台机器已经开通过。换机器用 vault restore。" % path, 409)
     link = transport(connection)
-    master = crypto.new_key()
-    write_private(path, master.hex() + "\n")
-    try:
-        provision.set_first_key(link, connection.ledger_id, master)
-    except BaseException:
-        path.unlink()
-        raise
+    status, state = link.call("GET", "/api/state")
+    if status != 200:
+        raise VaultError("无法读取账本状态：HTTP %d %s" % (status, state.get("message", "")), status)
+    if state.get("ledger_id") != crypto.canonical_uuid(connection.ledger_id):
+        raise VaultError("这把钥匙属于另一本账。", 409)
+    resumed = path.exists() or path.is_symlink()
+    if resumed:
+        master = read_master_key(path)
+        if state.get("wrapped_key"):
+            try:
+                crypto.unwrap_key(master, crypto.unb64(state["wrapped_key"]), connection.ledger_id)
+            except crypto.VaultCryptoError:
+                raise VaultError("这台机器上的 master key（%s）打不开这本账；不要删它，原样告诉用户。" % path, 409) from None
+        else:
+            provision.set_first_key(link, connection.ledger_id, master)
+    else:
+        if state.get("key_version"):
+            raise VaultError("这本账已经开通过了，但这台机器上没有 master key：用恢复码恢复（vault restore），不要重新开通。", 409)
+        master = crypto.new_key()
+        write_private(path, master.hex() + "\n")
+        try:
+            provision.set_first_key(link, connection.ledger_id, master)
+        except VaultError as error:
+            if 400 <= error.status < 500:      # the server clearly said no: this key was never stored
+                path.unlink()
+            raise                              # otherwise the answer may have been lost: keep the key for a rerun
     created = 0
     if not empty:
         with Vault(link, connection.ledger_id, master) as vault:
-            created = provision.write_ledger(vault, provision.new_ledger(starter_categories(), book=book))
+            vault.ensure(force=True)
+            if not vault.data["head"]:         # a rerun after the starter set already went in adds nothing
+                created = provision.write_ledger(vault, provision.new_ledger(starter_categories(), book=book))
     return {"ok": True, "ledger_id": crypto.canonical_uuid(connection.ledger_id), "master_key_file": str(path),
-            "records": created,
+            "records": created, **({"note": "接着上次没做完的开通完成了。"} if resumed else {}),
             "next": "运行 vault recovery-code，把恢复码给用户看一次，请他存进密码管理器。没有恢复码，丢了这台机器账就打不开。"}
 
 
