@@ -2,7 +2,7 @@
  "files": {
   "ledgerctl.py": "ea3b3e34f9f419c422e006e66ffa96e3aaec1d5e9a69a5f70a4757332e8f241a",
   "client_config.py": "0ef0df2b2a118dba8a3c84d952b3b724a3aa50e85081713af9f99e8683c6e6dc",
-  "QUICK_CARD.md": "78f456637765e08b107dee02689ab258bdb6ce2cc798a160730e584494af9994",
+  "QUICK_CARD.md": "4235fd9ed09b3ed8a38ba0997089683cd36eb549ebd3e9be82d60a15487ebb89",
   "AGENT_USAGE.md": "a40fb99bbcc598059e6743c6cd8add701e0a4b1158473668821de30272ec1308",
   "design/template.html": "dc8a722d17ce21422db5d08a0c41ec3dec599962cbe6d6e832dbe058bf0c9725",
   "tools/recurring.py": "16295214fd7d054056cc81a19a0e39d97cca9d34c18bf9d79cf660580edb3bbd",
@@ -10,7 +10,7 @@
   "tools/record.py": "6932d2b6ce57debe6e569ac3175b636355ceaac0fabfbacd69fa5eae68ef8a87",
   "tools/dashboard_data.py": "cbe6462cbbc2d41db20609757221b8053814a3fe4aea3c7501781c4462eff235",
   "tools/daily.py": "812668a773c967f816cf4caa65a3c511f51d70d4fcb625ece85b0f9cc7859145",
-  "tools/manifest.py": "0f67fe8e8d77728fcd44b3ce34063ed0dd4863b5dbf44b3b08e159d9a076c88d",
+  "tools/manifest.py": "3f3303e66ccc6b246836e513dd03d223fe3c560f0ce0c37b8bb7a238763e7547",
   "tools/categories.py": "b2c053d8385d07d05e71ccf7de23eb503417b0bdfe652e28fc34c08bf63c5d89",
   "categories.json": "5196714da72c1545192577a0d372dfecdebd93eaf6e57fae9fc530ed17e6d005",
   "tools/fix.py": "1c4a5905118293cef3452b7c81659c0cb8f50ee2cde422613f5b11012d338173",
@@ -26,8 +26,9 @@
   "acost_vault/admin.py": "350f00c5c803f7dd6e3f6dc730d3853d2b82111c9bc88d63e21affbc59061e4f",
   "cloud_admin.py": "00f964f18df751ca45703ceccf9db65907ff566cb95f41bdd901a4fbb74e3aa1",
   "tools/fetch.py": "d4f95a4804a3fcb185120651909088d9b2a5000ce02852c1fc2a1a0d36075f87",
-  "tools/install_muse.py": "ebe9da25ca9d0ede33fa44f121e144683d550893594fe63cec4c77a9877bfacb",
+  "tools/install_muse.py": "36f5b62053bcdfe26b3d3d2966d3d7a1f4346513435d94a1343daf8840e6d392",
   "acost_vault/report.py": "ce97fbfe4de602c1d41be436451d56c4a476952db3af4bbb2d5518a193260791",
-  "tools/report.py": "bc008cb268a6cd39fe9f291e411372993e56c9d470fbbb7f5ae073bd3de6ff43"
+  "tools/report.py": "bc008cb268a6cd39fe9f291e411372993e56c9d470fbbb7f5ae073bd3de6ff43",
+  "WELCOME.md": "db3930b018899573e9447bebc7c919212f95c6585a03a90d9573908e1225674b"
  }
 }

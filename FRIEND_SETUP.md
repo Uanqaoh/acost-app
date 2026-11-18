@@ -11,7 +11,7 @@ Acost 是一个记账工具：你把小票发给自己的 Muse，Muse 记账，�
 
 3. Muse 会给你一串 `ACOST1-` 开头的**恢复码**。把它存进你的密码管理器，然后告诉 Muse「存好了」。**没有恢复码，Muse 那台云电脑出问题时账就再也打不开**，谁也帮不了你。不要截图，不要发给别人，包括 Hao。
 
-之后发小票给 Muse 就能记账。
+装好后 Muse 会发你一段介绍，说明 Acost 能做什么、怎么用。之后打字、发截图或拍小票给 Muse 就能记账；有问题或建议也直接跟 Muse 说。
 
 ---
 
@@ -75,7 +75,7 @@ python3 ~/acost/tools/daily.py
 
 ### 6. 记账规则
 
-把 `~/acost/QUICK_CARD.md` 存成你的记账技能，每次记账照它做；遇到 409、改账、删账时读 `~/acost/AGENT_USAGE.md`。要点：
+把 `~/acost/QUICK_CARD.md` 存成你的 Acost 技能。用户每次发来记账内容、小票、截图，或提到 Acost（改账、预算、看板、报告问题、提建议、更新），先看卡片最上面「用户说什么，做什么」那张表，再照对应的一节做；遇到 409、改账、删账时读 `~/acost/AGENT_USAGE.md`。要点：
 
 - 记小票用 `python3 ~/acost/tools/record.py receipt.json --ledger ~/acost/bin/ledger-ai`，小票内容写进 JSON 文件，不要拼进命令。
 - 只用账本里已有的分类；没有合适的就先问用户。只记加元。
@@ -92,6 +92,10 @@ python3 ~/acost/tools/fetch.py
 ```
 
 更新完再读一遍 `QUICK_CARD.md`。
+
+### 8. 发介绍给用户
+
+上面都做完后，把 `~/acost/WELCOME.md` 分割线之间的内容原样发给用户，告诉他 Acost 装好了、怎么用。用户以后问「Acost 是什么」「怎么用」时也发这一段。
 
 ### 换了一台云电脑
 
