@@ -2,7 +2,7 @@
  "files": {
   "ledgerctl.py": "ea3b3e34f9f419c422e006e66ffa96e3aaec1d5e9a69a5f70a4757332e8f241a",
   "client_config.py": "0ef0df2b2a118dba8a3c84d952b3b724a3aa50e85081713af9f99e8683c6e6dc",
-  "QUICK_CARD.md": "a550f48ab5fd2596301b3973a3a52ddb06456b534784272e9b41d03b76940849",
+  "QUICK_CARD.md": "963d68e912725f67697d9a7faa43d14f7e4380d53ea009d4a5ad79e9671ed811",
   "AGENT_USAGE.md": "a40fb99bbcc598059e6743c6cd8add701e0a4b1158473668821de30272ec1308",
   "design/template.html": "032e291ae3092f51e5834afff2a6c674ab2a7f6bc7fcd0d874c009a4382daae4",
   "tools/recurring.py": "16295214fd7d054056cc81a19a0e39d97cca9d34c18bf9d79cf660580edb3bbd",
@@ -10,7 +10,7 @@
   "tools/record.py": "be9ca298c3405265515d407011f06945647f796cf895a1d0f2b6db4c9d23e560",
   "tools/dashboard_data.py": "435f1192b080ff598fade9f41bdaeae203f65853ca8f2c43b3e1f50c4dc50a36",
   "tools/daily.py": "812668a773c967f816cf4caa65a3c511f51d70d4fcb625ece85b0f9cc7859145",
-  "tools/manifest.py": "9ff86f5a4e1fda2a6fc10ddf3d44521c301d1796e152bb7b3d9ff72478468197",
+  "tools/manifest.py": "b3dc2ce4d78d40f2f907c2dd3eaa80f09232b6677560238294e471cd232cf462",
   "tools/categories.py": "b2c053d8385d07d05e71ccf7de23eb503417b0bdfe652e28fc34c08bf63c5d89",
   "categories.json": "5196714da72c1545192577a0d372dfecdebd93eaf6e57fae9fc530ed17e6d005",
   "tools/fix.py": "227a9b6d5f194ebe36f294c910c264aae0fd6ca6c72388e680c65f8a4da58654",
@@ -26,10 +26,11 @@
   "acost_vault/admin.py": "350f00c5c803f7dd6e3f6dc730d3853d2b82111c9bc88d63e21affbc59061e4f",
   "cloud_admin.py": "00f964f18df751ca45703ceccf9db65907ff566cb95f41bdd901a4fbb74e3aa1",
   "tools/fetch.py": "d4f95a4804a3fcb185120651909088d9b2a5000ce02852c1fc2a1a0d36075f87",
-  "tools/install_muse.py": "36f5b62053bcdfe26b3d3d2966d3d7a1f4346513435d94a1343daf8840e6d392",
+  "tools/install_muse.py": "81d968d34784306a5a9d8a9439f39227368560168fe1105e7f9779824966aa3e",
   "acost_vault/report.py": "b1051fa89b5e563ae85d606b7ff254f3bf6059caf6d68696791e991687532b66",
   "tools/report.py": "bc008cb268a6cd39fe9f291e411372993e56c9d470fbbb7f5ae073bd3de6ff43",
-  "WELCOME.md": "e298c5d39bf6c6b79c62a0ed01e94739cb52abea14fcb2c73e2307b9ae73802b",
-  "assets/pin_tab.mp4": "80717abfd2d5c4e396d9d5fd0deb69938c3d14377d529d9319097a304aa2e34b"
+  "WELCOME.md": "d02a37d64cb87679c1b15250612005cda798e6b18a7c93ea00ea06e3329db5b7",
+  "assets/pin_tab.mp4": "80717abfd2d5c4e396d9d5fd0deb69938c3d14377d529d9319097a304aa2e34b",
+  "tools/welcome.py": "31d906cd996607dbe8ba86ea99d99b85ffc5bff5a72b9f604feb1d6aa116a0ca"
  }
 }

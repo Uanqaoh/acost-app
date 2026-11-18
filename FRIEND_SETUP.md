@@ -7,7 +7,7 @@ Acost 是一个记账工具：你把小票发给自己的 Muse，Muse 记账，�
 1. 从 Hao 那里拿到一个**邀请码**（`ACOST-` 开头）。它只能用一次，7 天内有效。
 2. 把这句话发给你的 Muse（把邀请码换成你的）：
 
-   > 请按 https://github.com/Uanqaoh/acost-app/blob/main/FRIEND_SETUP.md 里「给 Muse」那一节，帮我装好 Acost。邀请码是 ACOST-xxxx-xxxx-xxxx-xxxx-xxxx 。每一步的结果告诉我。
+   > 请按 https://github.com/Uanqaoh/acost-app/blob/main/FRIEND_SETUP.md 里「给 Muse」那一节，帮我装好 Acost。邀请码是 ACOST-xxxx-xxxx-xxxx-xxxx-xxxx 。每一步的结果告诉我，装好后把介绍和引导视频发给我。
 
 3. Muse 会给你一串 `ACOST1-` 开头的**恢复码**。把它存进你的密码管理器，然后告诉 Muse「存好了」。**没有恢复码，Muse 那台云电脑出问题时账就再也打不开**，谁也帮不了你。不要截图，不要发给别人，包括 Hao。
 
@@ -93,9 +93,15 @@ python3 ~/acost/tools/fetch.py
 
 更新完再读一遍 `QUICK_CARD.md`。
 
-### 8. 发介绍给用户
+### 8. 发介绍和引导视频给用户（必做）
 
-上面都做完后，把 `~/acost/WELCOME.md` 分割线之间的内容原样发给用户，告诉他 Acost 装好了、怎么用。再照 `WELCOME.md` 开头的说明，把「拖到底部栏」的动画发给用户。用户以后问「Acost 是什么」「怎么用」时也发这一段。
+上面都做完后，**一定要做这一步**，安装才算完：
+
+```sh
+python3 ~/acost/tools/welcome.py
+```
+
+照输出里的 `next` 做：先把 `message` 原样发给用户，再把 `video`（`~/acost/assets/pin_tab.mp4`）作为视频附件发给用户，配上 `caption`。两样都要发。用户以后问「Acost 是什么」「怎么用」时也这样发。
 
 ### 换了一台云电脑
 

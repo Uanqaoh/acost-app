@@ -1,12 +1,6 @@
 # 装好后发给用户的介绍
 
-给 Muse：安装、恢复码、看板、早上的例行任务都做完后，把下面分割线之间的内容**原样**发给用户（可以把「你」换成用户的名字）。用户以后问「Acost 是什么」「怎么用」，也发这一段。不要加金额、余额或任何钥匙。
-
-发完介绍，接着把动画 `~/acost/assets/pin_tab.mp4` 作为视频发给用户，配一句：
-
-> 把「Acost 看板」拖到底部栏，以后一点就能看账：☰ → 按住 Acost 看板 → 拖到 Main chat 下面。
-
-聊天里发不了本机文件时，改发这个链接：https://raw.githubusercontent.com/Uanqaoh/acost-app/main/assets/pin_tab.mp4
+给 Muse：安装、恢复码、看板、早上的例行任务都做完后（用户说「存好了」之后），运行 `python3 ~/acost/tools/welcome.py`，照它输出的 `next` 做：先把介绍原样发给用户，再把引导视频 `~/acost/assets/pin_tab.mp4` 作为视频附件发给用户。**两样都要发。** 用户以后问「Acost 是什么」「怎么用」，也这样发。不要加金额、余额或任何钥匙。
 
 ---
 
