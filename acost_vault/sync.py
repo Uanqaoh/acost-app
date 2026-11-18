@@ -85,7 +85,7 @@ class Transport:
         self.url, self.token, self.use_env_proxy, self.timeout = url.rstrip("/"), token, use_env_proxy, timeout
         self.calls = 0
 
-    READ_TRIES = 3
+    READ_TRIES = 5
     sleep = staticmethod(time.sleep)
 
     def call(self, method, path, body=None, query=None):
@@ -103,23 +103,36 @@ class Transport:
         tries = self.READ_TRIES if method == "GET" else 1
         for attempt in range(tries):
             if attempt:
-                self.sleep(attempt)
+                self.sleep(min(2 ** (attempt - 1), 8))
             self.calls += 1
             try:
                 with opener.open(urllib.request.Request(target, data=data, headers=headers, method=method),
                                  timeout=self.timeout) as response:
-                    return response.status, json.loads(response.read(256 * 1024 * 1024) or b"{}")
+                    return response.status, json.loads(_read(response, 256 * 1024 * 1024) or b"{}")
             except urllib.error.HTTPError as error:
                 if 300 <= error.code < 400:
                     raise VaultError("服务返回重定向，已拒绝转发凭据。", 502) from None
                 try:
-                    body = json.loads(error.read(65536).decode())
+                    body = json.loads(_read(error, 65536).decode())
                 except (ValueError, UnicodeError, OSError, http.client.HTTPException):
                     body = {}
                 return error.code, body if isinstance(body, dict) else {}
             except (urllib.error.URLError, OSError, TimeoutError, ValueError, http.client.HTTPException) as error:
                 failure = error
         raise VaultError("无法连接共享账本（%s）。请检查网络与服务状态；不会切换到本地账本。" % _reason(failure), 503)
+
+
+def _read(response, limit):
+    """The body. A proxy that drops the last bit of a chunked reply leaves a complete body behind: keep it when it is
+    whole JSON (a cut-off JSON object never parses), otherwise treat it as a dropped connection."""
+    try:
+        return response.read(limit)
+    except http.client.IncompleteRead as error:
+        try:
+            json.loads(error.partial)
+        except (ValueError, UnicodeError):
+            raise error from None
+        return error.partial
 
 
 def _reason(error):
