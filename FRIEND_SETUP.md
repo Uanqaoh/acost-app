@@ -11,7 +11,7 @@ Acost 是一个记账工具：你把小票发给自己的 Muse，Muse 记账，�
 
 3. Muse 会给你一串 `ACOST1-` 开头的**恢复码**。把它存进你的密码管理器，然后告诉 Muse「存好了」。**没有恢复码，Muse 那台云电脑出问题时账就再也打不开**，谁也帮不了你。不要截图，不要发给别人，包括 Hao。
 
-之后发小票给 Muse 就能记账。
+装好后 Muse 会发你一段介绍，说明 Acost 能做什么、怎么用。之后打字、发截图或拍小票给 Muse 就能记账；有问题或建议也直接跟 Muse 说。
 
 ---
 
@@ -75,7 +75,7 @@ python3 ~/acost/tools/daily.py
 
 ### 6. 记账规则
 
-把 `~/acost/QUICK_CARD.md` 存成你的记账技能，每次记账照它做；遇到 409、改账、删账时读 `~/acost/AGENT_USAGE.md`。要点：
+把 `~/acost/QUICK_CARD.md` 存成你的 Acost 技能。用户每次发来记账内容、小票、截图，或提到 Acost（改账、预算、看板、报告问题、提建议、更新），先看卡片最上面「用户说什么，做什么」那张表，再照对应的一节做；遇到 409、改账、删账时读 `~/acost/AGENT_USAGE.md`。要点：
 
 - 记小票用 `python3 ~/acost/tools/record.py receipt.json --ledger ~/acost/bin/ledger-ai`，小票内容写进 JSON 文件，不要拼进命令。
 - 只用账本里已有的分类；没有合适的就先问用户。只记加元。
@@ -93,6 +93,10 @@ python3 ~/acost/tools/fetch.py
 
 更新完再读一遍 `QUICK_CARD.md`。
 
+### 8. 发介绍给用户
+
+上面都做完后，把 `~/acost/WELCOME.md` 分割线之间的内容原样发给用户，告诉他 Acost 装好了、怎么用。再照 `WELCOME.md` 开头的说明，把「拖到底部栏」的动画发给用户。用户以后问「Acost 是什么」「怎么用」时也发这一段。
+
 ### 换了一台云电脑
 
 账还在服务器上，钥匙要重新来：请用户向 Hao 要一个新邀请码会开一本**新的空账**，所以不要这样做。正确做法是让 Hao 给原来的账本补发钥匙，再请用户提供恢复码，运行 `~/acost/bin/ledger-ai vault restore`（从标准输入读恢复码）。
@@ -102,7 +106,7 @@ python3 ~/acost/tools/fetch.py
 用户说「有问题」「报告给 Hao」「帮我报个 bug」之类，或者上面哪一步停住了、用户想让 Hao 看看：写一个 `problem.json`，然后运行：
 
 ```json
-{"step": "install", "summary": "安装停在加入这一步，重跑三次都一样", "error": "<出错时的输出，原样>"}
+{"step": "install", "summary": "安装停在加入这一步，重跑三次都一样", "error": "install_muse.py 加入这一步：无法连接共享账本"}
 ```
 
 ```sh
@@ -111,7 +115,7 @@ python3 ~/acost/tools/report.py problem.json
 
 还没装好、没有钥匙的时候（比如加入那一步就失败了），加上用户的邀请码：`--invite ACOST-xxxx-xxxx-xxxx-xxxx-xxxx`。
 
-- `step`：install、record、dashboard、daily、update、other 之一。`summary` 一句话说出了什么事。**不写金额、商家、账户名、商品和用户的个人信息。** `error` 放原文，程序会自己去掉金额、钥匙、邀请码和恢复码。
+- `step`：install、record、dashboard、daily、update、other 之一。`summary` 一句话说出了什么事。**不写金额、商家、账户名、商品和用户的个人信息。** `error` 只写哪个程序、哪一步出错和错误类型（如 HTTP 状态码、错误码、「无法连接」），**不要把输出原样贴进去**，不写商家、日期、分类、金额。程序还会再去掉金额、钥匙、邀请码和恢复码。
 - 程序先自检（Python 和程序版本、文件齐不齐、服务器连不连得上、`vault check`），再发给 Hao。发出去的只有这些和你写的三项，没有任何一笔账；Hao 也读不了账本。
 - 成功时告诉用户「已经发给 Hao 了（第 N 号）」。没发出去，把输出原样告诉用户，请他直接找 Hao。
 - 想先看会发什么：加 `--dry-run`。

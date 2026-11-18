@@ -137,7 +137,7 @@ def main(argv=None):
             raise Stop("看板钥匙不对：" + str(meta.get("error")))
         print(json.dumps({"ok": True, "done": done, "ledger": {k: check.get(k) for k in ("entries", "accounts", "categories", "seconds")},
                           "next": "运行 ~/acost/bin/ledger-ai vault recovery-code，把恢复码原样给用户看一次，请他存进密码管理器；"
-                                  "然后按 FRIEND_SETUP.md 第 4 步建看板。"}, ensure_ascii=False))
+                                  "然后按 FRIEND_SETUP.md 第 4 到 8 步做完（看板、早上的例行任务、记账技能，最后把 WELCOME.md 的介绍发给用户）。"}, ensure_ascii=False))
         return 0
     except Stop as stop:
         print(json.dumps({"ok": False, "done": done, "next": str(stop)}, ensure_ascii=False))

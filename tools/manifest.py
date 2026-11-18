@@ -21,7 +21,9 @@ FILES = ("ledgerctl.py", "client_config.py", "QUICK_CARD.md", "AGENT_USAGE.md", 
          # Friends' machines: download and update (fetch.py), first setup (install_muse.py).
          "tools/fetch.py", "tools/install_muse.py",
          # The problem inbox: Muse tells Hao what broke (no ledger content).
-         "acost_vault/report.py", "tools/report.py")
+         "acost_vault/report.py", "tools/report.py",
+         # What Muse sends the user once Acost is installed.
+         "WELCOME.md", "assets/pin_tab.gif")
 
 
 def current(root=ROOT):
