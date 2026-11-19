@@ -155,7 +155,7 @@ def run(ledger, months=None, config=None, out=None, recurring_file=None, now=Non
             "config_found": config_path.exists()}
 
 
-REFRESHED = "看板数据已经更新好，让「Acost 看板」重新读一次。"
+REFRESHED = "看板数据已经更新好，打开「Acost 看板」就是最新的。"
 
 
 def refresh(ledger, out=None):

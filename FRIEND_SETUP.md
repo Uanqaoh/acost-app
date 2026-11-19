@@ -60,7 +60,8 @@ python3 ~/acost/tools/install_muse.py --invite ACOST-xxxx-xxxx-xxxx-xxxx-xxxx
   python3 ~/acost/tools/dashboard_data.py --ledger ~/acost/bin/ledger-ro
   ```
 
-- 页面自己会切换月份、搜索、点饼图，外层不用管。Space 只要一个「刷新」动作：运行上面的命令，再把新数据放进页面。
+- **每次打开看板，都直接读 `~/acost/data/template_data.json` 当时的内容**，不要只用上次存下的副本（缓存）。记账、改分类和每天早上的程序都会自己重写这个文件，所以打开就是最新的，记完账不用再点刷新。
+- 页面自己会切换月份、搜索、点饼图，外层不用管。Space 另有一个「刷新」按钮：运行上面的命令，再读这个文件。
 - 看板只读：页面上不要加任何记账、修改、删除的入口。
 
 ### 5. 每天早上 07:00（多伦多时间）
@@ -71,7 +72,7 @@ python3 ~/acost/tools/install_muse.py --invite ACOST-xxxx-xxxx-xxxx-xxxx-xxxx
 python3 ~/acost/tools/daily.py
 ```
 
-它会核对程序文件、记到期的固定扣费、体检、重新生成看板数据。把输出里 `report` 的几行告诉用户，不要多说；`refresh` 是 `true` 时刷新看板。
+它会核对程序文件、记到期的固定扣费、体检、重新生成看板数据。把输出里 `report` 的几行告诉用户，不要多说。看板下次打开就是新数据。
 
 ### 6. 记账规则
 
