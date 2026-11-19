@@ -19,7 +19,7 @@
 | 「这个月花了多少」「上周吃饭花了多少」 | 查账本 | 查账 |
 | 预算 | `budget.py`，金额只用用户说的 | 改分类、预算… |
 | 房租、订阅、话费这类每月固定的 | `recurring.py` | 固定扣费 |
-| 「刷新看板」 | 让看板重新读数据（记账、改分类后数据已经自动更新） | 看板 |
+| 「刷新看板」 | 重新生成看板数据（记账、改分类后已经自动更新） | 看板 |
 | 全年汇总 | `yearly.py` | 改分类、预算… |
 | Costco 退差价 | `costco_watch.py` | Costco 退差价 |
 | 「有问题」「报告给 Hao」「帮我报个 bug」 | `report.py` | 用户说有问题 |
@@ -89,13 +89,13 @@ python3 ~/acost/tools/record.py receipt.json --ledger ~/acost/bin/ledger-ai
 - 一张小票当时拆成了几笔的，每一笔各退各的，各运行一次。
 - **退款不要记成收入。不要用 `ledger-ai refund` 手工记。**
 
-记好以后，程序会自己更新看板数据，`next` 里会说「看板数据已经更新好」。你只要让「Acost 看板」重新读一次，不用再跑 `dashboard_data.py`。
+记好以后，程序会自己更新看板数据，`next` 里会说「看板数据已经更新好」。用户打开「Acost 看板」就是最新的，不用再跑 `dashboard_data.py`，也不用刷新。
 
 ## 看结果
 
 记账结果是一行 JSON。照 `next` 里的话做，不要多做：
 
-- `saved`：记好了。把笔数和合计告诉用户，然后让看板重新读一次。
+- `saved`：记好了。把笔数和合计告诉用户。
 - `already_saved`：之前记过，没有重复记。
 - `ask`：账本里已经有一样的一笔，而这次没有时间或交易号，程序分不清是同一笔还是又发生了一次。问用户。是另一笔，就照 `next` 在文件里加 `"again": 2` 再运行。
 - `partial`：记了一半。按 `next` 做，通常是原样再运行一次。
@@ -141,7 +141,7 @@ Costco 仓库买的东西 30 天内降价，可以去会员柜台退差价。程
 1. 先找到那一笔：`~/acost/bin/ledger-ro list --month 2026-11 --q 商家名`，再 `~/acost/bin/ledger-ai get 账单ID`，记下 `version`。
 2. 把要改的那一笔（日期、商家、金额）和打算怎么改告诉用户，**等用户说可以**再改。找到好几笔像的，让用户挑。
 3. 照 `AGENT_USAGE.md`「修改、软删除与恢复」一节做（`edit` / `delete` / `restore` 都要带 `--expected-version`）。
-4. 改完刷新看板，告诉用户改好了。
+4. 改完运行下面「看板」一节的命令更新看板数据，告诉用户改好了。
 
 有退款的那笔不能直接删，照程序的提示告诉用户。
 
@@ -155,7 +155,7 @@ Costco 仓库买的东西 30 天内降价，可以去会员柜台退差价。程
 
 ## 看板
 
-记账（`record.py`）、改分类（`fix.py --apply`）之后，程序已经把看板数据更新好了，只要让「Acost 看板」重新读一次。
+记账（`record.py`）、改分类（`fix.py --apply`）之后，程序已经把看板数据更新好了；看板每次打开都读最新的数据，不用另外刷新。如果用户说记完账看板没变、要手动点刷新，说明这个 Space 还在用旧做法（只认缓存）：照 https://github.com/Uanqaoh/acost-app/blob/main/FRIEND_SETUP.md 第 4 节改一次 Space，让它每次打开都读 `~/acost/data/template_data.json`。
 
 用手工命令改账、删账之后，或用户说「刷新看板」时，自己更新数据：
 
@@ -163,7 +163,7 @@ Costco 仓库买的东西 30 天内降价，可以去会员柜台退差价。程
 python3 ~/acost/tools/dashboard_data.py --ledger ~/acost/bin/ledger-ro
 ```
 
-`ok` 为 true 就让「Acost 看板」重新读数据。看板只读，不要在页面上加记账、修改、删除的按钮。
+`ok` 为 true 就好了，用户打开看板就能看到。看板只读，不要在页面上加记账、修改、删除的按钮。
 
 ## 每天早上
 
@@ -171,7 +171,7 @@ python3 ~/acost/tools/dashboard_data.py --ledger ~/acost/bin/ledger-ro
 python3 ~/acost/tools/daily.py
 ```
 
-把输出里 `report` 的每一行原样告诉用户。`refresh` 为 true 就让看板重新读数据。
+把输出里 `report` 的每一行原样告诉用户。
 
 ## 用户说有问题、要报告给 Hao
 
