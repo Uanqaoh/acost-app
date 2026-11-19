@@ -35,6 +35,10 @@ exec {python} {acost}/ledgerctl.py --config {config} "$@"
 """
 
 
+# Waits between join tries, in seconds: with up to 45 s per try, about 5 minutes before giving up.
+JOIN_WAITS = (5, 15, 30, 60, 90)
+
+
 class Stop(Exception):
     pass
 
@@ -86,12 +90,13 @@ def main(argv=None):
             if not args.invite:
                 raise Stop("还没加入：需要 Hao 发的邀请码，加 --invite 再运行。")
             # Same proxy switch as the wrappers: a Muse VM only reaches the internet through its egress proxy.
-            # Its connection sometimes drops for a moment, so a failure to connect is tried again (up to 5 times).
-            # If the server did use the code but its answer was lost, the server lets the same code in again
-            # (new keys for the same, still unopened ledger). Only an older server says "已经用过"; we say so.
-            for attempt in range(5):
+            # Its connection, or the server, is sometimes slow for a few minutes, so a failure to connect is tried
+            # again with growing waits, about 5 minutes in all (JOIN_WAITS). That is safe: if the server did use the
+            # code but its answer was lost, it lets the same code in again (new keys for the same, still unopened
+            # ledger). Only an older server says "已经用过"; we say so.
+            for attempt in range(len(JOIN_WAITS) + 1):
                 if attempt:
-                    time.sleep(min(3 * attempt, 10))
+                    time.sleep(JOIN_WAITS[attempt - 1])
                 ok, result = run(PYTHON, ACOST / "ledgerctl.py", "--config", CONFIG / "ai.json", "vault", "join", "--invite", args.invite,
                                  *(["--url", args.url] if args.url else []), env={**os.environ, "LEDGER_USE_ENV_PROXY": "1"})
                 if ok or "无法连接" not in str(result.get("error")):
@@ -100,6 +105,9 @@ def main(argv=None):
                 error = str(result.get("error"))
                 if "已经用过" in error and attempt:
                     raise Stop("邀请码已被这次安装用掉，但回复在路上丢了（网络断了一下）：请 Hao 在服务端删掉这个新账本并重发邀请码。原样告诉 Hao：" + error)
+                if "无法连接" in error:
+                    raise Stop("邀请码没用上（试了 %d 次，前后约 5 分钟都连不上）：过几分钟原样再运行这条安装命令就行，"
+                               "邀请码不会作废，做过的步骤不会重做。%s" % (attempt + 1, error))
                 raise Stop("邀请码没用上（试了 %d 次）：%s" % (attempt + 1, error))
             done.append("用邀请码加入，钥匙存在 ~/.config/acost/")
 

@@ -244,6 +244,7 @@ def export_bundle(connection, output):
 
 
 SERVICE_URL = "https://fptsrkpraxmliefkcquk.supabase.co/functions/v1/vault"
+JOIN_TIMEOUT = 45
 
 
 def join(invite, *, url=SERVICE_URL, directory=None, environ=None):
@@ -256,7 +257,8 @@ def join(invite, *, url=SERVICE_URL, directory=None, environ=None):
     if any(p.exists() for p in paths.values()):
         raise VaultError("这台机器已经加入过（%s 已存在）；不用再用邀请码。" % folder, 409)
     url = validate_url(url, "shared", "vault")
-    link = Transport(url, None, use_env_proxy=environ.get("LEDGER_USE_ENV_PROXY") == "1")
+    # 45 s, longer than the server's own 25 s wait for the database: a slow answer arrives instead of being given up on.
+    link = Transport(url, None, use_env_proxy=environ.get("LEDGER_USE_ENV_PROXY") == "1", timeout=JOIN_TIMEOUT)
     status, answer = link.call("POST", "/api/redeem", {"invite": invite})
     if status != 201:
         raise VaultError("HTTP %d：%s" % (status, answer.get("message", "邀请码没能用上")), status)
