@@ -37,7 +37,7 @@ rm ~/acost-fetch.py
 python3 ~/acost/tools/install_muse.py --invite ACOST-xxxx-xxxx-xxxx-xxxx-xxxx
 ```
 
-它会：建 `~/acost-venv` 并装 `cryptography`；写好两个命令 `~/acost/bin/ledger-ai`（记账）和 `~/acost/bin/ledger-ro`（看板，只读）；用邀请码加入，服务器给这个用户开一本账和两把钥匙，存在 `~/.config/acost/`；生成 master key、建好默认账户（Spending、Savings）和起步分类；最后自检。结果应该是 `"ok": true`。不是的话，`next` 里写了该怎么办。可以原样重跑，它只补没做的部分。
+它会：建 `~/acost-venv` 并装 `cryptography`；写好两个命令 `~/acost/bin/ledger-ai`（记账）和 `~/acost/bin/ledger-ro`（看板，只读）；用邀请码加入，服务器给这个用户开一本账和两把钥匙，存在 `~/.config/acost/`；生成 master key、建好默认账户（Spending、Savings）和起步分类；最后自检。结果应该是 `"ok": true`。不是的话，`next` 里写了该怎么办。可以原样重跑，它只补没做的部分。加入这一步连不上时它会自己重试，前后最多约 5 分钟；还是不行就过几分钟原样再跑，邀请码不会作废。
 
 **不要读、不要打印、不要复制** `~/.config/acost/` 里的任何文件（钥匙和 master key 都在那里）。
 
